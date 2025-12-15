@@ -5,10 +5,10 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"github.com/yourusername/erp-system/services/org-service/internal/service"
 	"github.com/yourusername/erp-system/shared/middleware"
 	"github.com/yourusername/erp-system/shared/utils"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type OrganizationHandler struct {
@@ -125,7 +125,7 @@ func (h *OrganizationHandler) DeleteOrganization(c *gin.Context) {
 
 // CreateCompany creates a new company
 func (h *OrganizationHandler) CreateCompany(c *gin.Context) {
-	orgID, err := primitive.ObjectIDFromHex(c.Param("org_id"))
+	orgID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid organization ID", nil)
 		return
@@ -168,7 +168,7 @@ func (h *OrganizationHandler) GetCompany(c *gin.Context) {
 
 // ListCompanies returns paginated companies
 func (h *OrganizationHandler) ListCompanies(c *gin.Context) {
-	orgID, err := primitive.ObjectIDFromHex(c.Param("org_id"))
+	orgID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid organization ID", nil)
 		return
@@ -233,7 +233,7 @@ func (h *OrganizationHandler) DeleteCompany(c *gin.Context) {
 
 // CreateLocation creates a new location
 func (h *OrganizationHandler) CreateLocation(c *gin.Context) {
-	companyID, err := primitive.ObjectIDFromHex(c.Param("company_id"))
+	companyID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid company ID", nil)
 		return
@@ -276,7 +276,7 @@ func (h *OrganizationHandler) GetLocation(c *gin.Context) {
 
 // ListLocations returns paginated locations
 func (h *OrganizationHandler) ListLocations(c *gin.Context) {
-	companyID, err := primitive.ObjectIDFromHex(c.Param("company_id"))
+	companyID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid company ID", nil)
 		return
@@ -310,8 +310,8 @@ func (h *OrganizationHandler) RegisterRoutes(router *gin.RouterGroup, jwtManager
 		orgs.DELETE("/:id", h.DeleteOrganization)
 
 		// Companies under organization
-		orgs.POST("/:org_id/companies", h.CreateCompany)
-		orgs.GET("/:org_id/companies", h.ListCompanies)
+		orgs.POST("/:id/companies", h.CreateCompany)
+		orgs.GET("/:id/companies", h.ListCompanies)
 	}
 
 	// Companies
@@ -322,8 +322,8 @@ func (h *OrganizationHandler) RegisterRoutes(router *gin.RouterGroup, jwtManager
 		companies.DELETE("/:id", h.DeleteCompany)
 
 		// Locations under company
-		companies.POST("/:company_id/locations", h.CreateLocation)
-		companies.GET("/:company_id/locations", h.ListLocations)
+		companies.POST("/:id/locations", h.CreateLocation)
+		companies.GET("/:id/locations", h.ListLocations)
 	}
 
 	// Locations

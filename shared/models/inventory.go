@@ -64,7 +64,7 @@ type ReorderPolicy struct {
 	ModifiedAt      int64  `bson:"modified_at" json:"modified_at"`
 
 	// Deletion Fields
-	IsDeleted 	bool   `bson:"is_deleted" json:"is_deleted"`
+	IsDeleted 		bool   `bson:"is_deleted" json:"is_deleted"`
 	DeletedDate 	int64  `bson:"deleted_date" json:"deleted_date"`
 }
 

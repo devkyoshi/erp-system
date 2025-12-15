@@ -89,9 +89,67 @@ erp-system-backend/
 
 ## API Documentation
 
-API documentation is available at:
-- Development: http://localhost:8080/swagger
-- Production: https://api.yourdomain.com/swagger
+Comprehensive API documentation is available in multiple formats:
+
+### Interactive Swagger UI
+```bash
+# Serve the Swagger UI locally
+make swagger-serve
+
+# Then open http://localhost:8000/swagger-ui.html in your browser
+```
+
+### Documentation Files
+- **OpenAPI Spec**: [`swagger.yaml`](./swagger.yaml) - Complete OpenAPI 3.0 specification
+- **API Guide**: [`API_DOCS_README.md`](./API_DOCS_README.md) - Quick start and examples
+- **Org Service**: [`services/org-service/API_DOCUMENTATION.md`](./services/org-service/API_DOCUMENTATION.md) - Detailed service docs
+
+### Viewing Options
+
+**Option 1: Local Swagger UI**
+```bash
+make swagger-serve
+# Visit http://localhost:8000/swagger-ui.html
+```
+
+**Option 2: Online Swagger Editor**
+1. Go to [https://editor.swagger.io/](https://editor.swagger.io/)
+2. File > Import File > Select `swagger.yaml`
+
+**Option 3: Postman**
+1. Open Postman
+2. Import > Select `swagger.yaml`
+3. All endpoints available as collection
+
+**Option 4: VS Code**
+1. Install "Swagger Viewer" extension
+2. Open `swagger.yaml`
+3. Right-click > "Preview Swagger"
+
+### Quick Examples
+
+**Register & Login:**
+```bash
+# Register new user
+curl -X POST http://localhost:8081/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"Pass123","first_name":"John","last_name":"Doe"}'
+
+# Login
+curl -X POST http://localhost:8081/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"Pass123"}'
+```
+
+**Create Organization:**
+```bash
+curl -X POST http://localhost:8082/api/v1/organizations \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Acme Corp","legal_name":"Acme Corporation","domain":"acme.com","email":"info@acme.com","billing_email":"billing@acme.com"}'
+```
+
+See [`API_DOCS_README.md`](./API_DOCS_README.md) for complete examples and best practices.
 
 ## License
 
