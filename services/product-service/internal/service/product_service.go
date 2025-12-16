@@ -31,41 +31,53 @@ func NewProductService(
 }
 
 // CreateProduct creates a new product
-func (s *ProductService) CreateProduct(ctx context.Context, product *models.Product, userOrgID primitive.ObjectID) error {
-	// Verify organization exists
-	exists, err := s.orgRepo.Exists(ctx, product.OrganizationID)
+func (s *ProductService) CreateProduct(ctx context.Context, req CreateProductRequest, userOrgID primitive.ObjectID) (*models.Product, error) {
+	// Parse organization ID
+	orgID, err := primitive.ObjectIDFromHex(req.OrganizationID)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	// Verify organization exists
+	exists, err := s.orgRepo.Exists(ctx, orgID)
+	if err != nil {
+		return nil, err
 	}
 	if !exists {
-		return fmt.Errorf("organization not found")
+		return nil, fmt.Errorf("organization not found")
 	}
 
 	// Check if user belongs to this organization
-	if product.OrganizationID != userOrgID {
-		return fmt.Errorf("unauthorized: cannot create product for different organization")
+	if orgID != userOrgID {
+		return nil, fmt.Errorf("unauthorized: cannot create product for different organization")
+	}
+
+	// Convert DTO to model
+	product, err := s.createProductRequestToModel(req, orgID)
+	if err != nil {
+		return nil, err
 	}
 
 	// Check if SKU already exists
 	exists, err = s.productRepo.CheckSKUExists(ctx, product.OrganizationID, product.SKU, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if exists {
-		return fmt.Errorf("SKU already exists")
+		return nil, fmt.Errorf("SKU already exists")
 	}
 
 	// Validate category if provided
 	if !product.CategoryID.IsZero() {
 		category, err := s.categoryRepo.FindByID(ctx, product.CategoryID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if category == nil {
-			return fmt.Errorf("category not found")
+			return nil, fmt.Errorf("category not found")
 		}
 		if category.OrganizationID != product.OrganizationID {
-			return fmt.Errorf("category must belong to the same organization")
+			return nil, fmt.Errorf("category must belong to the same organization")
 		}
 	}
 
@@ -73,13 +85,13 @@ func (s *ProductService) CreateProduct(ctx context.Context, product *models.Prod
 	if !product.BrandID.IsZero() {
 		brand, err := s.brandRepo.FindByID(ctx, product.BrandID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if brand == nil {
-			return fmt.Errorf("brand not found")
+			return nil, fmt.Errorf("brand not found")
 		}
 		if brand.OrganizationID != product.OrganizationID {
-			return fmt.Errorf("brand must belong to the same organization")
+			return nil, fmt.Errorf("brand must belong to the same organization")
 		}
 	}
 
@@ -106,7 +118,11 @@ func (s *ProductService) CreateProduct(ctx context.Context, product *models.Prod
 	product.TotalSold = 0
 	product.TotalPurchased = 0
 
-	return s.productRepo.Create(ctx, product)
+	if err := s.productRepo.Create(ctx, product); err != nil {
+		return nil, err
+	}
+
+	return product, nil
 }
 
 // GetProduct retrieves a product by ID
@@ -142,79 +158,82 @@ func (s *ProductService) ListProducts(ctx context.Context, orgID primitive.Objec
 }
 
 // UpdateProduct updates an existing product
-func (s *ProductService) UpdateProduct(ctx context.Context, id primitive.ObjectID, updates *models.Product, userOrgID primitive.ObjectID) error {
+func (s *ProductService) UpdateProduct(ctx context.Context, id primitive.ObjectID, req UpdateProductRequest, userOrgID primitive.ObjectID) (*models.Product, error) {
 	// Get existing product
 	existing, err := s.productRepo.FindByID(ctx, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if existing == nil {
-		return fmt.Errorf("product not found")
+		return nil, fmt.Errorf("product not found")
 	}
 
 	// Check if user belongs to this organization
 	if existing.OrganizationID != userOrgID {
-		return fmt.Errorf("unauthorized: product belongs to different organization")
+		return nil, fmt.Errorf("unauthorized: product belongs to different organization")
 	}
 
-	// Prevent changing organization
-	if updates.OrganizationID != existing.OrganizationID {
-		return fmt.Errorf("cannot change product organization")
+	// Apply updates to existing product
+	if err := s.applyProductUpdates(ctx, existing, req); err != nil {
+		return nil, err
 	}
 
 	// Check if SKU is being changed and if new SKU exists
-	if updates.SKU != existing.SKU {
-		exists, err := s.productRepo.CheckSKUExists(ctx, updates.OrganizationID, updates.SKU, &id)
+	if req.SKU != nil && *req.SKU != existing.SKU {
+		exists, err := s.productRepo.CheckSKUExists(ctx, existing.OrganizationID, *req.SKU, &id)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if exists {
-			return fmt.Errorf("SKU already exists")
+			return nil, fmt.Errorf("SKU already exists")
 		}
 	}
 
 	// Validate category if provided and changed
-	if !updates.CategoryID.IsZero() && updates.CategoryID != existing.CategoryID {
-		category, err := s.categoryRepo.FindByID(ctx, updates.CategoryID)
+	if req.CategoryID != nil {
+		catID, err := primitive.ObjectIDFromHex(*req.CategoryID)
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("invalid category ID: %w", err)
 		}
-		if category == nil {
-			return fmt.Errorf("category not found")
-		}
-		if category.OrganizationID != updates.OrganizationID {
-			return fmt.Errorf("category must belong to the same organization")
+		if catID != existing.CategoryID {
+			category, err := s.categoryRepo.FindByID(ctx, catID)
+			if err != nil {
+				return nil, err
+			}
+			if category == nil {
+				return nil, fmt.Errorf("category not found")
+			}
+			if category.OrganizationID != existing.OrganizationID {
+				return nil, fmt.Errorf("category must belong to the same organization")
+			}
 		}
 	}
 
 	// Validate brand if provided and changed
-	if !updates.BrandID.IsZero() && updates.BrandID != existing.BrandID {
-		brand, err := s.brandRepo.FindByID(ctx, updates.BrandID)
+	if req.BrandID != nil {
+		brandID, err := primitive.ObjectIDFromHex(*req.BrandID)
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("invalid brand ID: %w", err)
 		}
-		if brand == nil {
-			return fmt.Errorf("brand not found")
-		}
-		if brand.OrganizationID != updates.OrganizationID {
-			return fmt.Errorf("brand must belong to the same organization")
+		if brandID != existing.BrandID {
+			brand, err := s.brandRepo.FindByID(ctx, brandID)
+			if err != nil {
+				return nil, err
+			}
+			if brand == nil {
+				return nil, fmt.Errorf("brand not found")
+			}
+			if brand.OrganizationID != existing.OrganizationID {
+				return nil, fmt.Errorf("brand must belong to the same organization")
+			}
 		}
 	}
 
-	// Preserve certain fields
-	updates.ID = existing.ID
-	updates.CreatedAt = existing.CreatedAt
-	updates.TotalStock = existing.TotalStock
-	updates.AvailableStock = existing.AvailableStock
-	updates.AllocatedStock = existing.AllocatedStock
-	updates.InTransitStock = existing.InTransitStock
-	updates.StockValue = existing.StockValue
-	updates.TotalSold = existing.TotalSold
-	updates.TotalPurchased = existing.TotalPurchased
-	updates.LastSoldDate = existing.LastSoldDate
-	updates.LastPurchaseDate = existing.LastPurchaseDate
+	if err := s.productRepo.Update(ctx, existing); err != nil {
+		return nil, err
+	}
 
-	return s.productRepo.Update(ctx, updates)
+	return existing, nil
 }
 
 // DeleteProduct deletes a product
@@ -262,4 +281,455 @@ func (s *ProductService) GetProductBySKU(ctx context.Context, orgID primitive.Ob
 	}
 
 	return product, nil
+}
+
+// Request DTOs
+type CreateProductRequest struct {
+	OrganizationID string  `json:"organization_id" binding:"required"`
+	SKU            string  `json:"sku" binding:"required"`
+	Barcode        string  `json:"barcode"`
+	Name           string  `json:"name" binding:"required"`
+	Description    string  `json:"description"`
+	Type           string  `json:"type"`
+	Status         string  `json:"status"`
+	CategoryID     *string `json:"category_id"`
+	BrandID        *string `json:"brand_id"`
+	ManufacturerID *string `json:"manufacturer_id"`
+
+	// Inventory Settings
+	TrackInventory     bool   `json:"track_inventory"`
+	TrackBatches       bool   `json:"track_batches"`
+	TrackSerialNumbers bool   `json:"track_serial_numbers"`
+	ValuationMethod    string `json:"valuation_method"`
+
+	// Unit of Measure
+	BaseUnitID     *string  `json:"base_unit_id"`
+	AllowedUnitIDs []string `json:"allowed_unit_ids"`
+
+	// Dimensions & Weight
+	Weight        float64 `json:"weight"`
+	WeightUnit    string  `json:"weight_unit"`
+	Length        float64 `json:"length"`
+	Width         float64 `json:"width"`
+	Height        float64 `json:"height"`
+	DimensionUnit string  `json:"dimension_unit"`
+	Volume        float64 `json:"volume"`
+	VolumeUnit    string  `json:"volume_unit"`
+
+	// Pricing
+	CostPrice    float64 `json:"cost_price"`
+	StandardCost float64 `json:"standard_cost"`
+	SellingPrice float64 `json:"selling_price"`
+	MRP          float64 `json:"mrp"`
+	Currency     string  `json:"currency"`
+
+	// Tax & Accounting
+	TaxCategoryID *string `json:"tax_category_id"`
+	HSNCode       string  `json:"hsn_code"`
+	SACCode       string  `json:"sac_code"`
+
+	// Reorder Settings
+	ReorderLevel    int `json:"reorder_level"`
+	ReorderQuantity int `json:"reorder_quantity"`
+	MinStockLevel   int `json:"min_stock_level"`
+	MaxStockLevel   int `json:"max_stock_level"`
+	SafetyStock     int `json:"safety_stock"`
+
+	// Supplier Info
+	DefaultSupplierID *string  `json:"default_supplier_id"`
+	SupplierIDs       []string `json:"supplier_ids"`
+	LeadTimeDays      int      `json:"lead_time_days"`
+
+	// Quality & Expiry
+	ShelfLifeDays int  `json:"shelf_life_days"`
+	RequiresQC    bool `json:"requires_qc"`
+	Perishable    bool `json:"perishable"`
+	Hazardous     bool `json:"hazardous"`
+
+	// Images & Attachments
+	Images         []string          `json:"images"`
+	Thumbnail      string            `json:"thumbnail"`
+	Specifications map[string]string `json:"specifications"`
+
+	// Metadata
+	Metadata map[string]interface{} `json:"metadata"`
+}
+
+type UpdateProductRequest struct {
+	SKU            *string `json:"sku"`
+	Barcode        *string `json:"barcode"`
+	Name           *string `json:"name"`
+	Description    *string `json:"description"`
+	Type           *string `json:"type"`
+	Status         *string `json:"status"`
+	CategoryID     *string `json:"category_id"`
+	BrandID        *string `json:"brand_id"`
+	ManufacturerID *string `json:"manufacturer_id"`
+
+	// Inventory Settings
+	TrackInventory     *bool   `json:"track_inventory"`
+	TrackBatches       *bool   `json:"track_batches"`
+	TrackSerialNumbers *bool   `json:"track_serial_numbers"`
+	ValuationMethod    *string `json:"valuation_method"`
+
+	// Unit of Measure
+	BaseUnitID     *string  `json:"base_unit_id"`
+	AllowedUnitIDs []string `json:"allowed_unit_ids"`
+
+	// Dimensions & Weight
+	Weight        *float64 `json:"weight"`
+	WeightUnit    *string  `json:"weight_unit"`
+	Length        *float64 `json:"length"`
+	Width         *float64 `json:"width"`
+	Height        *float64 `json:"height"`
+	DimensionUnit *string  `json:"dimension_unit"`
+	Volume        *float64 `json:"volume"`
+	VolumeUnit    *string  `json:"volume_unit"`
+
+	// Pricing
+	CostPrice    *float64 `json:"cost_price"`
+	StandardCost *float64 `json:"standard_cost"`
+	SellingPrice *float64 `json:"selling_price"`
+	MRP          *float64 `json:"mrp"`
+	Currency     *string  `json:"currency"`
+
+	// Tax & Accounting
+	TaxCategoryID *string `json:"tax_category_id"`
+	HSNCode       *string `json:"hsn_code"`
+	SACCode       *string `json:"sac_code"`
+
+	// Reorder Settings
+	ReorderLevel    *int `json:"reorder_level"`
+	ReorderQuantity *int `json:"reorder_quantity"`
+	MinStockLevel   *int `json:"min_stock_level"`
+	MaxStockLevel   *int `json:"max_stock_level"`
+	SafetyStock     *int `json:"safety_stock"`
+
+	// Supplier Info
+	DefaultSupplierID *string  `json:"default_supplier_id"`
+	SupplierIDs       []string `json:"supplier_ids"`
+	LeadTimeDays      *int     `json:"lead_time_days"`
+
+	// Quality & Expiry
+	ShelfLifeDays *int  `json:"shelf_life_days"`
+	RequiresQC    *bool `json:"requires_qc"`
+	Perishable    *bool `json:"perishable"`
+	Hazardous     *bool `json:"hazardous"`
+
+	// Images & Attachments
+	Images         []string          `json:"images"`
+	Thumbnail      *string           `json:"thumbnail"`
+	Specifications map[string]string `json:"specifications"`
+
+	// Metadata
+	Metadata map[string]interface{} `json:"metadata"`
+}
+
+type ProductFilter struct {
+	CategoryID     *primitive.ObjectID
+	BrandID        *primitive.ObjectID
+	Status         *models.ProductStatus
+	Type           *models.ProductType
+	TrackInventory *bool
+	Search         string
+	Page           int
+	Limit          int
+}
+
+type ProductResponse struct {
+	ID             primitive.ObjectID   `json:"id"`
+	OrganizationID primitive.ObjectID   `json:"organization_id"`
+	SKU            string               `json:"sku"`
+	Barcode        string               `json:"barcode"`
+	Name           string               `json:"name"`
+	Description    string               `json:"description"`
+	Type           models.ProductType   `json:"type"`
+	Status         models.ProductStatus `json:"status"`
+
+	// Stock Info
+	TotalStock     float64 `json:"total_stock"`
+	AvailableStock float64 `json:"available_stock"`
+	AllocatedStock float64 `json:"allocated_stock"`
+	InTransitStock float64 `json:"in_transit_stock"`
+	StockValue     float64 `json:"stock_value"`
+
+	// Pricing
+	CostPrice    float64 `json:"cost_price"`
+	SellingPrice float64 `json:"selling_price"`
+	MRP          float64 `json:"mrp"`
+	Currency     string  `json:"currency"`
+
+	// References
+	CategoryID *primitive.ObjectID `json:"category_id,omitempty"`
+	BrandID    *primitive.ObjectID `json:"brand_id,omitempty"`
+
+	// Timestamps
+	CreatedAt primitive.DateTime `json:"created_at"`
+	UpdatedAt primitive.DateTime `json:"updated_at"`
+}
+
+// Helper methods to convert between DTOs and models
+func (s *ProductService) createProductRequestToModel(req CreateProductRequest, orgID primitive.ObjectID) (*models.Product, error) {
+	product := &models.Product{
+		OrganizationID:     orgID,
+		SKU:                req.SKU,
+		Barcode:            req.Barcode,
+		Name:               req.Name,
+		Description:        req.Description,
+		Type:               models.ProductType(req.Type),
+		Status:             models.ProductStatus(req.Status),
+		TrackInventory:     req.TrackInventory,
+		TrackBatches:       req.TrackBatches,
+		TrackSerialNumbers: req.TrackSerialNumbers,
+		ValuationMethod:    models.StockValuationMethod(req.ValuationMethod),
+		Weight:             req.Weight,
+		WeightUnit:         req.WeightUnit,
+		Length:             req.Length,
+		Width:              req.Width,
+		Height:             req.Height,
+		DimensionUnit:      req.DimensionUnit,
+		Volume:             req.Volume,
+		VolumeUnit:         req.VolumeUnit,
+		CostPrice:          req.CostPrice,
+		StandardCost:       req.StandardCost,
+		SellingPrice:       req.SellingPrice,
+		MRP:                req.MRP,
+		Currency:           req.Currency,
+		HSNCode:            req.HSNCode,
+		SACCode:            req.SACCode,
+		ReorderLevel:       req.ReorderLevel,
+		ReorderQuantity:    req.ReorderQuantity,
+		MinStockLevel:      req.MinStockLevel,
+		MaxStockLevel:      req.MaxStockLevel,
+		SafetyStock:        req.SafetyStock,
+		LeadTimeDays:       req.LeadTimeDays,
+		ShelfLifeDays:      req.ShelfLifeDays,
+		RequiresQC:         req.RequiresQC,
+		Perishable:         req.Perishable,
+		Hazardous:          req.Hazardous,
+		Images:             req.Images,
+		Thumbnail:          req.Thumbnail,
+		Specifications:     req.Specifications,
+		Metadata:           req.Metadata,
+	}
+
+	// Parse optional ObjectIDs
+	if req.CategoryID != nil {
+		id, err := primitive.ObjectIDFromHex(*req.CategoryID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid category ID: %w", err)
+		}
+		product.CategoryID = id
+	}
+
+	if req.BrandID != nil {
+		id, err := primitive.ObjectIDFromHex(*req.BrandID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid brand ID: %w", err)
+		}
+		product.BrandID = id
+	}
+
+	if req.ManufacturerID != nil {
+		id, err := primitive.ObjectIDFromHex(*req.ManufacturerID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid manufacturer ID: %w", err)
+		}
+		product.ManufacturerID = id
+	}
+
+	if req.BaseUnitID != nil {
+		id, err := primitive.ObjectIDFromHex(*req.BaseUnitID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid base unit ID: %w", err)
+		}
+		product.BaseUnitID = id
+	}
+
+	if req.TaxCategoryID != nil {
+		id, err := primitive.ObjectIDFromHex(*req.TaxCategoryID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid tax category ID: %w", err)
+		}
+		product.TaxCategoryID = id
+	}
+
+	if req.DefaultSupplierID != nil {
+		id, err := primitive.ObjectIDFromHex(*req.DefaultSupplierID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid default supplier ID: %w", err)
+		}
+		product.DefaultSupplierID = id
+	}
+
+	// Parse allowed unit IDs
+	if len(req.AllowedUnitIDs) > 0 {
+		allowedIDs := make([]primitive.ObjectID, 0, len(req.AllowedUnitIDs))
+		for _, idStr := range req.AllowedUnitIDs {
+			id, err := primitive.ObjectIDFromHex(idStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid allowed unit ID %s: %w", idStr, err)
+			}
+			allowedIDs = append(allowedIDs, id)
+		}
+		product.AllowedUnitIDs = allowedIDs
+	}
+
+	// Parse supplier IDs
+	if len(req.SupplierIDs) > 0 {
+		supplierIDs := make([]primitive.ObjectID, 0, len(req.SupplierIDs))
+		for _, idStr := range req.SupplierIDs {
+			id, err := primitive.ObjectIDFromHex(idStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid supplier ID %s: %w", idStr, err)
+			}
+			supplierIDs = append(supplierIDs, id)
+		}
+		product.SupplierIDs = supplierIDs
+	}
+
+	return product, nil
+}
+
+func (s *ProductService) applyProductUpdates(ctx context.Context, product *models.Product, req UpdateProductRequest) error {
+	if req.SKU != nil {
+		product.SKU = *req.SKU
+	}
+	if req.Barcode != nil {
+		product.Barcode = *req.Barcode
+	}
+	if req.Name != nil {
+		product.Name = *req.Name
+	}
+	if req.Description != nil {
+		product.Description = *req.Description
+	}
+	if req.Type != nil {
+		product.Type = models.ProductType(*req.Type)
+	}
+	if req.Status != nil {
+		product.Status = models.ProductStatus(*req.Status)
+	}
+	if req.CategoryID != nil {
+		id, err := primitive.ObjectIDFromHex(*req.CategoryID)
+		if err != nil {
+			return fmt.Errorf("invalid category ID: %w", err)
+		}
+		product.CategoryID = id
+	}
+	if req.BrandID != nil {
+		id, err := primitive.ObjectIDFromHex(*req.BrandID)
+		if err != nil {
+			return fmt.Errorf("invalid brand ID: %w", err)
+		}
+		product.BrandID = id
+	}
+	if req.ManufacturerID != nil {
+		id, err := primitive.ObjectIDFromHex(*req.ManufacturerID)
+		if err != nil {
+			return fmt.Errorf("invalid manufacturer ID: %w", err)
+		}
+		product.ManufacturerID = id
+	}
+	if req.TrackInventory != nil {
+		product.TrackInventory = *req.TrackInventory
+	}
+	if req.TrackBatches != nil {
+		product.TrackBatches = *req.TrackBatches
+	}
+	if req.TrackSerialNumbers != nil {
+		product.TrackSerialNumbers = *req.TrackSerialNumbers
+	}
+	if req.ValuationMethod != nil {
+		product.ValuationMethod = models.StockValuationMethod(*req.ValuationMethod)
+	}
+	if req.Weight != nil {
+		product.Weight = *req.Weight
+	}
+	if req.WeightUnit != nil {
+		product.WeightUnit = *req.WeightUnit
+	}
+	if req.Length != nil {
+		product.Length = *req.Length
+	}
+	if req.Width != nil {
+		product.Width = *req.Width
+	}
+	if req.Height != nil {
+		product.Height = *req.Height
+	}
+	if req.DimensionUnit != nil {
+		product.DimensionUnit = *req.DimensionUnit
+	}
+	if req.Volume != nil {
+		product.Volume = *req.Volume
+	}
+	if req.VolumeUnit != nil {
+		product.VolumeUnit = *req.VolumeUnit
+	}
+	if req.CostPrice != nil {
+		product.CostPrice = *req.CostPrice
+	}
+	if req.StandardCost != nil {
+		product.StandardCost = *req.StandardCost
+	}
+	if req.SellingPrice != nil {
+		product.SellingPrice = *req.SellingPrice
+	}
+	if req.MRP != nil {
+		product.MRP = *req.MRP
+	}
+	if req.Currency != nil {
+		product.Currency = *req.Currency
+	}
+	if req.HSNCode != nil {
+		product.HSNCode = *req.HSNCode
+	}
+	if req.SACCode != nil {
+		product.SACCode = *req.SACCode
+	}
+	if req.ReorderLevel != nil {
+		product.ReorderLevel = *req.ReorderLevel
+	}
+	if req.ReorderQuantity != nil {
+		product.ReorderQuantity = *req.ReorderQuantity
+	}
+	if req.MinStockLevel != nil {
+		product.MinStockLevel = *req.MinStockLevel
+	}
+	if req.MaxStockLevel != nil {
+		product.MaxStockLevel = *req.MaxStockLevel
+	}
+	if req.SafetyStock != nil {
+		product.SafetyStock = *req.SafetyStock
+	}
+	if req.LeadTimeDays != nil {
+		product.LeadTimeDays = *req.LeadTimeDays
+	}
+	if req.ShelfLifeDays != nil {
+		product.ShelfLifeDays = *req.ShelfLifeDays
+	}
+	if req.RequiresQC != nil {
+		product.RequiresQC = *req.RequiresQC
+	}
+	if req.Perishable != nil {
+		product.Perishable = *req.Perishable
+	}
+	if req.Hazardous != nil {
+		product.Hazardous = *req.Hazardous
+	}
+	if req.Images != nil {
+		product.Images = req.Images
+	}
+	if req.Thumbnail != nil {
+		product.Thumbnail = *req.Thumbnail
+	}
+	if req.Specifications != nil {
+		product.Specifications = req.Specifications
+	}
+	if req.Metadata != nil {
+		product.Metadata = req.Metadata
+	}
+
+	return nil
 }

@@ -54,22 +54,27 @@ func (h *ProductHandler) RegisterProductRoutes(
 // @Failure 500 {object} utils.Response
 // @Router /products [post]
 func (h *ProductHandler) CreateProduct(c *gin.Context) {
-	var product models.Product
-	if err := c.ShouldBindJSON(&product); err != nil {
+	var req service.CreateProductRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error(), nil)
 		return
 	}
 
 	// Get user organization from context
-	userOrgID, exists := c.Get("organization_id")
+	userOrgIDStr, exists := c.Get("organization_id")
 	if !exists {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "INVALID_USER", "Organization not found in context", nil)
 		return
 	}
 
-	orgID := userOrgID.(primitive.ObjectID)
+	orgID, err := primitive.ObjectIDFromHex(userOrgIDStr.(string))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ORG_ID", "Invalid organization ID", nil)
+		return
+	}
 
-	if err := h.productService.CreateProduct(c.Request.Context(), &product, orgID); err != nil {
+	product, err := h.productService.CreateProduct(c.Request.Context(), req, orgID)
+	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "CREATE_FAILED", err.Error(), nil)
 		return
 	}
@@ -95,13 +100,17 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 		return
 	}
 
-	userOrgID, exists := c.Get("organization_id")
+	userOrgIDStr, exists := c.Get("organization_id")
 	if !exists {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "INVALID_USER", "Organization not found in context", nil)
 		return
 	}
 
-	orgID := userOrgID.(primitive.ObjectID)
+	orgID, err := primitive.ObjectIDFromHex(userOrgIDStr.(string))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ORG_ID", "Invalid organization ID", nil)
+		return
+	}
 
 	product, err := h.productService.GetProduct(c.Request.Context(), id, orgID)
 	if err != nil {
@@ -142,13 +151,17 @@ func (h *ProductHandler) GetProductBySKU(c *gin.Context) {
 		return
 	}
 
-	userOrgID, exists := c.Get("organization_id")
+	userOrgIDStr, exists := c.Get("organization_id")
 	if !exists {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "INVALID_USER", "Organization not found in context", nil)
 		return
 	}
 
-	userOrg := userOrgID.(primitive.ObjectID)
+	userOrg, err := primitive.ObjectIDFromHex(userOrgIDStr.(string))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ORG_ID", "Invalid organization ID", nil)
+		return
+	}
 
 	product, err := h.productService.GetProductBySKU(c.Request.Context(), orgID, sku, userOrg)
 	if err != nil {
@@ -302,26 +315,31 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 		return
 	}
 
-	var product models.Product
-	if err := c.ShouldBindJSON(&product); err != nil {
+	var req service.UpdateProductRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error(), nil)
 		return
 	}
 
-	userOrgID, exists := c.Get("organization_id")
+	userOrgIDStr, exists := c.Get("organization_id")
 	if !exists {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "INVALID_USER", "Organization not found in context", nil)
 		return
 	}
 
-	orgID := userOrgID.(primitive.ObjectID)
+	orgID, err := primitive.ObjectIDFromHex(userOrgIDStr.(string))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ORG_ID", "Invalid organization ID", nil)
+		return
+	}
 
-	if err := h.productService.UpdateProduct(c.Request.Context(), id, &product, orgID); err != nil {
+	product, err := h.productService.UpdateProduct(c.Request.Context(), id, req, orgID)
+	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "UPDATE_FAILED", err.Error(), nil)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, nil, "Product updated successfully")
+	utils.SuccessResponse(c, http.StatusOK, product, "Product updated successfully")
 }
 
 // DeleteProduct deletes a product
@@ -342,13 +360,17 @@ func (h *ProductHandler) DeleteProduct(c *gin.Context) {
 		return
 	}
 
-	userOrgID, exists := c.Get("organization_id")
+	userOrgIDStr, exists := c.Get("organization_id")
 	if !exists {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "INVALID_USER", "Organization not found in context", nil)
 		return
 	}
 
-	orgID := userOrgID.(primitive.ObjectID)
+	orgID, err := primitive.ObjectIDFromHex(userOrgIDStr.(string))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ORG_ID", "Invalid organization ID", nil)
+		return
+	}
 
 	if err := h.productService.DeleteProduct(c.Request.Context(), id, orgID); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "DELETE_FAILED", err.Error(), nil)

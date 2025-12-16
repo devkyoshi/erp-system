@@ -43,15 +43,24 @@ docker-down: ## Stop all Docker services
 docker-clean: ## Remove all Docker containers and volumes
 	docker-compose down -v
 
-# migrate: ## Run database migrations
-# 	@echo "Running migrations..."
-# 	@go run scripts/migrate/main.go
-# 	@echo "Migrations complete!"
+seed-units: ## Seed default units and conversions
+	@echo "Seeding units..."
+	@docker exec -i erp-mongodb mongosh -u admin -p admin123 --authenticationDatabase admin < scripts/seeds/001_insert_units.js
+	@echo "Units seeding complete!"
 
-# seed: ## Seed database with sample data
-# 	@echo "Seeding database..."
-# 	@go run scripts/seed/main.go
-# 	@echo "Seeding complete!"
+seed-all: ## Seed all data (init + units + more)
+	@echo "Seeding all data..."
+	@docker exec -i erp-mongodb mongosh -u admin -p admin123 --authenticationDatabase admin < scripts/mongo-init.js
+	@for file in scripts/seeds/*.js; do \
+		echo "Seeding $$file..."; \
+		docker exec -i erp-mongodb mongosh -u admin -p admin123 --authenticationDatabase admin < $$file; \
+	done
+	@echo "All seeding complete!"
+
+seed: ## Seed database with initial data
+	@echo "Seeding database..."
+	@docker exec -i erp-mongodb mongosh -u admin -p admin123 --authenticationDatabase admin < scripts/mongo-init.js
+	@echo "Seeding complete!"
 
 # proto: ## Generate protobuf files
 # 	@echo "Generating protobuf files..."

@@ -2,15 +2,13 @@ package models
 
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
-// Unit represents a unit of measure (UOM)
+// Unit represents a unit of measure (UOM) - Global/System-wide
 type Unit struct {
 	BaseModel `bson:",inline"`
 
-	OrganizationID primitive.ObjectID `bson:"organization_id" json:"organization_id" binding:"required"`
-
 	Code        string `bson:"code" json:"code" binding:"required"` // PCS, KG, L
-	Name        string `bson:"name" json:"name"`                   // Pieces, Kilogram
-	Symbol      string `bson:"symbol" json:"symbol"`               // pcs, kg
+	Name        string `bson:"name" json:"name"`                    // Pieces, Kilogram
+	Symbol      string `bson:"symbol" json:"symbol"`                // pcs, kg
 	Description string `bson:"description" json:"description"`
 
 	// Classification
@@ -22,11 +20,9 @@ type Unit struct {
 	Metadata map[string]interface{} `bson:"metadata" json:"metadata"`
 }
 
-// UnitChart defines unit conversion rules
+// UnitChart defines unit conversion rules - Global/System-wide
 type UnitChart struct {
 	BaseModel `bson:",inline"`
-
-	OrganizationID primitive.ObjectID `bson:"organization_id" json:"organization_id" binding:"required"`
 
 	FromUnitID primitive.ObjectID `bson:"from_unit_id" json:"from_unit_id"`
 	ToUnitID   primitive.ObjectID `bson:"to_unit_id" json:"to_unit_id"`

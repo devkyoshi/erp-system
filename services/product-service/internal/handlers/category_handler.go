@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/yourusername/erp-system/services/product-service/internal/service"
 	"github.com/yourusername/erp-system/shared/middleware"
-	"github.com/yourusername/erp-system/shared/models"
 	"github.com/yourusername/erp-system/shared/utils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -52,22 +51,27 @@ func (h *CategoryHandler) RegisterCategoryRoutes(router *gin.RouterGroup, jwtMan
 // @Failure 500 {object} utils.Response
 // @Router /categories [post]
 func (h *CategoryHandler) CreateCategory(c *gin.Context) {
-	var category models.ProductCategory
-	if err := c.ShouldBindJSON(&category); err != nil {
+	var req service.CreateCategoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error(), nil)
 		return
 	}
 
 	// Get user organization from context
-	userOrgID, exists := c.Get("organization_id")
+	userOrgIDStr, exists := c.Get("organization_id")
 	if !exists {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "INVALID_USER", "Organization not found in context", nil)
 		return
 	}
 
-	orgID := userOrgID.(primitive.ObjectID)
+	orgID, err := primitive.ObjectIDFromHex(userOrgIDStr.(string))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ORG_ID", "Invalid organization ID", nil)
+		return
+	}
 
-	if err := h.categoryService.CreateCategory(c.Request.Context(), &category, orgID); err != nil {
+	category, err := h.categoryService.CreateCategory(c.Request.Context(), req, orgID)
+	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "CREATE_FAILED", err.Error(), nil)
 		return
 	}
@@ -93,13 +97,17 @@ func (h *CategoryHandler) GetCategory(c *gin.Context) {
 		return
 	}
 
-	userOrgID, exists := c.Get("organization_id")
+	userOrgIDStr, exists := c.Get("organization_id")
 	if !exists {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "INVALID_USER", "Organization not found in context", nil)
 		return
 	}
 
-	orgID := userOrgID.(primitive.ObjectID)
+	orgID, err := primitive.ObjectIDFromHex(userOrgIDStr.(string))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ORG_ID", "Invalid organization ID", nil)
+		return
+	}
 
 	category, err := h.categoryService.GetCategory(c.Request.Context(), id, orgID)
 	if err != nil {
@@ -267,13 +275,17 @@ func (h *CategoryHandler) GetChildren(c *gin.Context) {
 		return
 	}
 
-	userOrgID, exists := c.Get("organization_id")
+	userOrgIDStr, exists := c.Get("organization_id")
 	if !exists {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "INVALID_USER", "Organization not found in context", nil)
 		return
 	}
 
-	orgID := userOrgID.(primitive.ObjectID)
+	orgID, err := primitive.ObjectIDFromHex(userOrgIDStr.(string))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ORG_ID", "Invalid organization ID", nil)
+		return
+	}
 
 	children, err := h.categoryService.GetChildren(c.Request.Context(), id, orgID)
 	if err != nil {
@@ -304,26 +316,31 @@ func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
 		return
 	}
 
-	var category models.ProductCategory
-	if err := c.ShouldBindJSON(&category); err != nil {
+	var req service.UpdateCategoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.ErrorResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error(), nil)
 		return
 	}
 
-	userOrgID, exists := c.Get("organization_id")
+	userOrgIDStr, exists := c.Get("organization_id")
 	if !exists {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "INVALID_USER", "Organization not found in context", nil)
 		return
 	}
 
-	orgID := userOrgID.(primitive.ObjectID)
+	orgID, err := primitive.ObjectIDFromHex(userOrgIDStr.(string))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ORG_ID", "Invalid organization ID", nil)
+		return
+	}
 
-	if err := h.categoryService.UpdateCategory(c.Request.Context(), id, &category, orgID); err != nil {
+	category, err := h.categoryService.UpdateCategory(c.Request.Context(), id, req, orgID)
+	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "UPDATE_FAILED", err.Error(), nil)
 		return
 	}
 
-	utils.SuccessResponse(c, http.StatusOK, nil, "Category updated successfully")
+	utils.SuccessResponse(c, http.StatusOK, category, "Category updated successfully")
 }
 
 // DeleteCategory deletes a category
@@ -344,13 +361,17 @@ func (h *CategoryHandler) DeleteCategory(c *gin.Context) {
 		return
 	}
 
-	userOrgID, exists := c.Get("organization_id")
+	userOrgIDStr, exists := c.Get("organization_id")
 	if !exists {
 		utils.ErrorResponse(c, http.StatusUnauthorized, "INVALID_USER", "Organization not found in context", nil)
 		return
 	}
 
-	orgID := userOrgID.(primitive.ObjectID)
+	orgID, err := primitive.ObjectIDFromHex(userOrgIDStr.(string))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ORG_ID", "Invalid organization ID", nil)
+		return
+	}
 
 	if err := h.categoryService.DeleteCategory(c.Request.Context(), id, orgID); err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "DELETE_FAILED", err.Error(), nil)

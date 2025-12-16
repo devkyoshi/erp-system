@@ -22,45 +22,88 @@ func NewCategoryService(categoryRepo *repository.CategoryRepository, orgRepo *re
 }
 
 // CreateCategory creates a new category
-func (s *CategoryService) CreateCategory(ctx context.Context, category *models.ProductCategory, userOrgID primitive.ObjectID) error {
-	// Verify organization exists
-	exists, err := s.orgRepo.Exists(ctx, category.OrganizationID)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("organization not found")
-	}
+func (s *CategoryService) CreateCategory(ctx context.Context, req CreateCategoryRequest, userOrgID primitive.ObjectID) (*models.ProductCategory, error) {
+	var orgID primitive.ObjectID
 
-	// Check if user belongs to this organization
-	if category.OrganizationID != userOrgID {
-		return fmt.Errorf("unauthorized: cannot create category for different organization")
-	}
-
-	// Validate parent category if provided
-	if category.ParentID != nil {
-		parent, err := s.categoryRepo.FindByID(ctx, *category.ParentID)
+	// Parse parent ID if provided
+	var parentID *primitive.ObjectID
+	if req.ParentID != nil && *req.ParentID != "" {
+		pid, err := primitive.ObjectIDFromHex(*req.ParentID)
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("invalid parent ID: %w", err)
+		}
+		parentID = &pid
+	}
+
+	// If parent exists, inherit organization from parent and verify access
+	if parentID != nil {
+		parent, err := s.categoryRepo.FindByID(ctx, *parentID)
+		if err != nil {
+			return nil, err
 		}
 		if parent == nil {
-			return fmt.Errorf("parent category not found")
+			return nil, fmt.Errorf("parent category not found")
 		}
-		if parent.OrganizationID != category.OrganizationID {
-			return fmt.Errorf("parent category must belong to the same organization")
+
+		// Check if user belongs to parent's organization
+		if parent.OrganizationID != userOrgID {
+			return nil, fmt.Errorf("unauthorized: cannot create subcategory for parent in different organization")
 		}
+
+		// Inherit organization from parent
+		orgID = parent.OrganizationID
+	} else {
+		// For root categories, use organization ID from request
+		if req.OrganizationID == "" {
+			return nil, fmt.Errorf("organization_id is required for root categories")
+		}
+
+		var err error
+		orgID, err = primitive.ObjectIDFromHex(req.OrganizationID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid organization ID: %w", err)
+		}
+
+		// Verify organization exists
+		exists, err := s.orgRepo.Exists(ctx, orgID)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, fmt.Errorf("organization not found")
+		}
+
+		// Check if user belongs to this organization
+		if orgID != userOrgID {
+			return nil, fmt.Errorf("unauthorized: cannot create category for different organization")
+		}
+	}
+
+	// Convert DTO to model
+	category := &models.ProductCategory{
+		OrganizationID: orgID,
+		ParentID:       parentID,
+		Name:           req.Name,
+		Code:           req.Code,
+		Description:    req.Description,
+		IsActive:       req.IsActive,
+		Metadata:       req.Metadata,
 	}
 
 	// Check if name already exists at the same level
-	exists, err = s.categoryRepo.CheckNameExists(ctx, category.OrganizationID, category.Name, category.ParentID, nil)
+	nameExists, err := s.categoryRepo.CheckNameExists(ctx, category.OrganizationID, category.Name, category.ParentID, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if exists {
-		return fmt.Errorf("category name already exists at this level")
+	if nameExists {
+		return nil, fmt.Errorf("category name already exists at this level")
 	}
 
-	return s.categoryRepo.Create(ctx, category)
+	if err := s.categoryRepo.Create(ctx, category); err != nil {
+		return nil, err
+	}
+
+	return category, nil
 }
 
 // GetCategory retrieves a category by ID
@@ -156,67 +199,89 @@ func (s *CategoryService) GetChildren(ctx context.Context, parentID primitive.Ob
 }
 
 // UpdateCategory updates an existing category
-func (s *CategoryService) UpdateCategory(ctx context.Context, id primitive.ObjectID, updates *models.ProductCategory, userOrgID primitive.ObjectID) error {
+func (s *CategoryService) UpdateCategory(ctx context.Context, id primitive.ObjectID, req UpdateCategoryRequest, userOrgID primitive.ObjectID) (*models.ProductCategory, error) {
 	// Get existing category
 	existing, err := s.categoryRepo.FindByID(ctx, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if existing == nil {
-		return fmt.Errorf("category not found")
+		return nil, fmt.Errorf("category not found")
 	}
 
 	// Check if user belongs to this organization
 	if existing.OrganizationID != userOrgID {
-		return fmt.Errorf("unauthorized: category belongs to different organization")
+		return nil, fmt.Errorf("unauthorized: category belongs to different organization")
 	}
 
-	// Prevent changing organization
-	if updates.OrganizationID != existing.OrganizationID {
-		return fmt.Errorf("cannot change category organization")
+	// Apply updates
+	if req.Name != nil {
+		existing.Name = *req.Name
+	}
+	if req.Code != nil {
+		existing.Code = *req.Code
+	}
+	if req.Description != nil {
+		existing.Description = *req.Description
+	}
+	if req.IsActive != nil {
+		existing.IsActive = *req.IsActive
+	}
+	if req.Metadata != nil {
+		existing.Metadata = req.Metadata
 	}
 
-	// Validate parent category if changed
-	if updates.ParentID != nil {
-		// Cannot set self as parent
-		if *updates.ParentID == id {
-			return fmt.Errorf("category cannot be its own parent")
-		}
+	// Handle parent ID update
+	if req.ParentID != nil {
+		if *req.ParentID == "" {
+			existing.ParentID = nil
+		} else {
+			parentID, err := primitive.ObjectIDFromHex(*req.ParentID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid parent ID: %w", err)
+			}
 
-		parent, err := s.categoryRepo.FindByID(ctx, *updates.ParentID)
-		if err != nil {
-			return err
-		}
-		if parent == nil {
-			return fmt.Errorf("parent category not found")
-		}
-		if parent.OrganizationID != updates.OrganizationID {
-			return fmt.Errorf("parent category must belong to the same organization")
-		}
+			// Cannot set self as parent
+			if parentID == id {
+				return nil, fmt.Errorf("category cannot be its own parent")
+			}
 
-		// Check for circular reference (parent cannot be a descendant)
-		if s.isDescendant(ctx, id, *updates.ParentID) {
-			return fmt.Errorf("circular reference detected: parent cannot be a descendant")
+			parent, err := s.categoryRepo.FindByID(ctx, parentID)
+			if err != nil {
+				return nil, err
+			}
+			if parent == nil {
+				return nil, fmt.Errorf("parent category not found")
+			}
+			if parent.OrganizationID != existing.OrganizationID {
+				return nil, fmt.Errorf("parent category must belong to the same organization")
+			}
+
+			// Check for circular reference (parent cannot be a descendant)
+			if s.isDescendant(ctx, id, parentID) {
+				return nil, fmt.Errorf("circular reference detected: parent cannot be a descendant")
+			}
+
+			existing.ParentID = &parentID
 		}
 	}
 
 	// Check if name already exists at the same level (excluding current category)
-	if updates.Name != existing.Name || updates.ParentID != existing.ParentID {
-		exists, err := s.categoryRepo.CheckNameExists(ctx, updates.OrganizationID, updates.Name, updates.ParentID, &id)
+	if req.Name != nil || req.ParentID != nil {
+		exists, err := s.categoryRepo.CheckNameExists(ctx, existing.OrganizationID, existing.Name, existing.ParentID, &id)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if exists {
-			return fmt.Errorf("category name already exists at this level")
+			return nil, fmt.Errorf("category name already exists at this level")
 		}
 	}
 
-	// Preserve certain fields
-	updates.ID = existing.ID
-	updates.CreatedAt = existing.CreatedAt
-	updates.ProductCount = existing.ProductCount
+	if err := s.categoryRepo.Update(ctx, existing); err != nil {
+		return nil, err
+	}
 
-	return s.categoryRepo.Update(ctx, updates)
+	return existing, nil
 }
 
 // isDescendant checks if potentialDescendant is a descendant of categoryID
@@ -277,4 +342,44 @@ func (s *CategoryService) DeleteCategory(ctx context.Context, id primitive.Objec
 // UpdateProductCount updates the product count for a category
 func (s *CategoryService) UpdateProductCount(ctx context.Context, categoryID primitive.ObjectID) error {
 	return s.categoryRepo.UpdateProductCount(ctx, categoryID)
+}
+
+// Request DTOs
+type CreateCategoryRequest struct {
+	OrganizationID string                 `json:"organization_id"` // Required only for root categories, inherited from parent for subcategories
+	Name           string                 `json:"name" binding:"required"`
+	Code           string                 `json:"code"`
+	Description    string                 `json:"description"`
+	ParentID       *string                `json:"parent_id"` // If provided, organization_id is inherited from parent
+	IsActive       bool                   `json:"is_active"`
+	Metadata       map[string]interface{} `json:"metadata"`
+}
+
+type UpdateCategoryRequest struct {
+	Name        *string                `json:"name"`
+	Code        *string                `json:"code"`
+	Description *string                `json:"description"`
+	ParentID    *string                `json:"parent_id"`
+	IsActive    *bool                  `json:"is_active"`
+	Metadata    map[string]interface{} `json:"metadata"`
+}
+
+type CategoryFilter struct {
+	ParentID *primitive.ObjectID
+	Level    *int
+	IsActive *bool
+	Page     int
+	Limit    int
+}
+
+type CategoryTreeNode struct {
+	ID           primitive.ObjectID `json:"id"`
+	Name         string             `json:"name"`
+	Code         string             `json:"code"`
+	Description  string             `json:"description"`
+	Level        int                `json:"level"`
+	Path         string             `json:"path"`
+	IsActive     bool               `json:"is_active"`
+	ProductCount int                `json:"product_count"`
+	Children     []CategoryTreeNode `json:"children"`
 }
