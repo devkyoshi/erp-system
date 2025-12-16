@@ -15,12 +15,13 @@ import (
 	"github.com/yourusername/erp-system/services/product-service/internal/repository"
 	"github.com/yourusername/erp-system/services/product-service/internal/service"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/yourusername/erp-system/shared/database"
 	"github.com/yourusername/erp-system/shared/middleware"
 	"github.com/yourusername/erp-system/shared/utils"
+	"go.mongodb.org/mongo-driver/bson"
 )
-
 
 func main() {
 
@@ -28,7 +29,7 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// Connect to MongoDB
-		// Connect to MongoDB
+	// Connect to MongoDB
 	mongoDB, err := database.NewMongoDB(cfg.MongoURI, "erp_db")
 	if err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)
@@ -50,15 +51,18 @@ func main() {
 	// Initialize JWT manager
 	jwtManager := utils.NewJWTManager(cfg.JWTSecret, 15*time.Minute, 168*time.Hour)
 
-
 	// Initialize repositories
 	productRepo := repository.NewProductRepository(mongoDB.Database)
-	
+	brandRepo := repository.NewBrandRepository(mongoDB.Database)
+	orgRepo := repository.NewOrganizationRepository(mongoDB.Database)
+
 	// Initialize services
 	productService := service.NewProductService(productRepo)
+	brandService := service.NewBrandService(brandRepo, orgRepo)
 
 	// Initialize handlers
 	productHandler := handlers.NewProductHandler(productService)
+	brandHandler := handlers.NewBrandHandler(brandService)
 
 	// Set Gin mode
 	if cfg.Environment == "production" {
@@ -83,6 +87,7 @@ func main() {
 	// API routes
 	v1 := router.Group("/api/v1")
 	productHandler.RegisterProductRoutes(v1, jwtManager)
+	brandHandler.RegisterBrandRoutes(v1, jwtManager)
 
 	// Start server
 	srv := &http.Server{
@@ -99,8 +104,7 @@ func main() {
 
 	log.Printf("Product Service started on port %s", cfg.Port)
 
-
-		// Wait for interrupt signal
+	// Wait for interrupt signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -118,6 +122,84 @@ func main() {
 }
 
 func createIndexes(db *mongo.Database) error {
-	//TODO: Create necessary indexes for product collections
+	ctx := context.Background()
+
+	// Brand collection indexes
+	brandCollection := db.Collection("brands")
+
+	// Index on organization_id and name (unique within organization)
+	_, err := brandCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "organization_id", Value: 1},
+			{Key: "name", Value: 1},
+		},
+		Options: options.Index().
+			SetUnique(true).
+			SetPartialFilterExpression(bson.M{
+				"deleted_at": nil,
+			}),
+	})
+	if err != nil {
+		return err
+	}
+
+	// Index on organization_id and code (unique within organization)
+	_, err = brandCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "organization_id", Value: 1},
+			{Key: "code", Value: 1},
+		},
+		Options: options.Index().
+			SetUnique(true).
+			SetPartialFilterExpression(bson.M{
+				"deleted_at": nil,
+				"code":       bson.M{"$exists": true},
+			}),
+	})
+	if err != nil {
+		return err
+	}
+
+	// Index on organization_id for listing
+	_, err = brandCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "organization_id", Value: 1},
+			{Key: "deleted_at", Value: 1},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Product collection indexes
+	productCollection := db.Collection("products")
+
+	// Index on organization_id and SKU (unique within organization)
+	_, err = productCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "organization_id", Value: 1},
+			{Key: "sku", Value: 1},
+		},
+		Options: options.Index().
+			SetUnique(true).
+			SetPartialFilterExpression(bson.M{
+				"deleted_at": nil,
+			}),
+	})
+	if err != nil {
+		return err
+	}
+
+	// Index on brand_id for checking brand usage
+	_, err = productCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "brand_id", Value: 1},
+			{Key: "deleted_at", Value: 1},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
