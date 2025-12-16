@@ -54,15 +54,18 @@ func main() {
 	// Initialize repositories
 	productRepo := repository.NewProductRepository(mongoDB.Database)
 	brandRepo := repository.NewBrandRepository(mongoDB.Database)
+	categoryRepo := repository.NewCategoryRepository(mongoDB.Database)
 	orgRepo := repository.NewOrganizationRepository(mongoDB.Database)
 
 	// Initialize services
-	productService := service.NewProductService(productRepo)
+	productService := service.NewProductService(productRepo, categoryRepo, brandRepo, orgRepo)
 	brandService := service.NewBrandService(brandRepo, orgRepo)
+	categoryService := service.NewCategoryService(categoryRepo, orgRepo)
 
 	// Initialize handlers
 	productHandler := handlers.NewProductHandler(productService)
 	brandHandler := handlers.NewBrandHandler(brandService)
+	categoryHandler := handlers.NewCategoryHandler(categoryService)
 
 	// Set Gin mode
 	if cfg.Environment == "production" {
@@ -88,6 +91,7 @@ func main() {
 	v1 := router.Group("/api/v1")
 	productHandler.RegisterProductRoutes(v1, jwtManager)
 	brandHandler.RegisterBrandRoutes(v1, jwtManager)
+	categoryHandler.RegisterCategoryRoutes(v1, jwtManager)
 
 	// Start server
 	srv := &http.Server{
@@ -194,6 +198,76 @@ func createIndexes(db *mongo.Database) error {
 	_, err = productCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "brand_id", Value: 1},
+			{Key: "deleted_at", Value: 1},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Category collection indexes
+	categoryCollection := db.Collection("categories")
+
+	// Index on organization_id and name (unique within same parent)
+	_, err = categoryCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "organization_id", Value: 1},
+			{Key: "parent_id", Value: 1},
+			{Key: "name", Value: 1},
+		},
+		Options: options.Index().
+			SetUnique(true).
+			SetPartialFilterExpression(bson.M{
+				"deleted_at": nil,
+			}),
+	})
+	if err != nil {
+		return err
+	}
+
+	// Index on organization_id and path (unique paths)
+	_, err = categoryCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "organization_id", Value: 1},
+			{Key: "path", Value: 1},
+		},
+		Options: options.Index().
+			SetUnique(true).
+			SetPartialFilterExpression(bson.M{
+				"deleted_at": nil,
+			}),
+	})
+	if err != nil {
+		return err
+	}
+
+	// Index on parent_id for finding children
+	_, err = categoryCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "parent_id", Value: 1},
+			{Key: "deleted_at", Value: 1},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Index on organization_id and level for filtering
+	_, err = categoryCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "organization_id", Value: 1},
+			{Key: "level", Value: 1},
+			{Key: "deleted_at", Value: 1},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Index on category_id in products for checking category usage
+	_, err = productCollection.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "category_id", Value: 1},
 			{Key: "deleted_at", Value: 1},
 		},
 	})
