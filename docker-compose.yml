@@ -82,6 +82,7 @@ services:
       MONGO_URI: mongodb://admin:admin123@mongodb:27017
       REDIS_ADDR: redis:6379
       RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
     ports:
       - "8002:8002"
     depends_on:
@@ -102,7 +103,8 @@ services:
       PORT: 8003
       MONGO_URI: mongodb://admin:admin123@mongodb:27017
       REDIS_ADDR: redis:6379
-      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:567
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
     ports:
       - "8003:8003"
     depends_on:
