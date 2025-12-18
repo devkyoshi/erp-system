@@ -2,6 +2,15 @@
 
 This guide will help you deploy your ERP system microservices to Railway. Since Railway doesn't support Docker Compose, each service needs to be deployed individually.
 
+> **⚠️ IMPORTANT: Root Directory Configuration**
+> 
+> For each service you deploy, you MUST configure the **Root Directory** in Railway:
+> - Go to Service **Settings** → **Source**
+> - Set **Root Directory** to the service path (e.g., `services/auth-service`)
+> - Without this, Nixpacks cannot detect your Go project!
+>
+> See [RAILWAY_FIX.md](./RAILWAY_FIX.md) if you encounter build errors.
+
 ## Prerequisites
 
 1. **Railway Account**: Sign up at [railway.app](https://railway.app)
@@ -57,9 +66,10 @@ Each service needs to be deployed separately. Railway will detect the `nixpacks.
 #### 3.1 Deploy Auth Service
 
 1. **Add New Service**: Click **"+ New"** → **"GitHub Repo"** → Select your repo
-2. **Configure Root Directory**: 
-   - Set **Root Directory** to `/` (since nixpacks.toml handles the service-specific build)
-   - Or create separate Railway services pointing to different branches/paths
+2. **Configure Root Directory** (CRITICAL): 
+   - Go to **Settings** → **Source**
+   - Set **Root Directory** to `services/auth-service`
+   - Set **Watch Paths** to `services/auth-service/**` and `shared/**` (optional, for rebuild optimization)
 3. **Add Environment Variables**:
    ```
    PORT=8001
@@ -80,7 +90,7 @@ Each service needs to be deployed separately. Railway will detect the `nixpacks.
 #### 3.2 Deploy Organization Service
 
 1. **Add New Service** from the same repository
-2. **Configure Path**: Point to `services/org-service` or use nixpacks.toml
+2. **Configure Root Directory**: Set to `services/org-service` in Settings → Source
 3. **Add Environment Variables**:
    ```
    PORT=8002
@@ -96,7 +106,8 @@ Each service needs to be deployed separately. Railway will detect the `nixpacks.
 #### 3.3 Deploy Product Service
 
 1. **Add New Service**
-2. **Add Environment Variables**:
+2. **Configure Root Directory**: Set to `services/product-service`
+3. **Add Environment Variables**:
    ```
    PORT=8003
    MONGO_URI=${{MongoDB.MONGO_URL}}
@@ -107,10 +118,11 @@ Each service needs to be deployed separately. Railway will detect the `nixpacks.
    ```
 
 3. **Deploy**
-
 #### 3.4 Deploy Inventory Service
 
 1. **Add New Service**
+2. **Configure Root Directory**: Set to `services/inventory-service`
+3. **Add Environment Variables**:
 2. **Add Environment Variables**:
    ```
    PORT=8006
@@ -120,10 +132,11 @@ Each service needs to be deployed separately. Railway will detect the `nixpacks.
    ENV=production
    ```
 
-3. **Deploy**
-
 #### 3.5 Deploy License Service
 
+1. **Add New Service**
+2. **Configure Root Directory**: Set to `services/license-service`
+3. **Add Environment Variables**:
 1. **Add New Service**
 2. **Add Environment Variables**:
    ```
@@ -133,10 +146,11 @@ Each service needs to be deployed separately. Railway will detect the `nixpacks.
    JWT_SECRET=<same-as-auth-service>
    ENV=production
    ```
-
-3. **Deploy**
-
 #### 3.6 Deploy Subscription Service
+
+1. **Add New Service**
+2. **Configure Root Directory**: Set to `services/subscription-service`
+3. **Add Environment Variables**:ice
 
 1. **Add New Service**
 2. **Add Environment Variables**:
