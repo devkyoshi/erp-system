@@ -30,7 +30,7 @@ An AI-ready, workflow-driven, multi-tenant ERP system built with Golang, MongoDB
 - MongoDB 7.0+
 - Redis 7.0+
 
-### Installation
+### Local Development
 
 1. Clone the repository
 ```bash
@@ -57,6 +57,30 @@ make migrate
 ```bash
 make dev
 ```
+
+### Railway Deployment
+
+Want to deploy to production? We've made it easy!
+
+**🚂 Railway Deployment Guide**
+- See [RAILWAY_SETUP_SUMMARY.md](./RAILWAY_SETUP_SUMMARY.md) for quick start
+- See [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md) for detailed guide
+- See [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md) for all env vars
+
+```bash
+# Quick deploy
+npm install -g @railway/cli
+railway login
+bash scripts/railway-setup.sh
+# Follow the steps in RAILWAY_DEPLOYMENT.md
+```
+
+Railway deployment includes:
+- ✅ Nixpacks configuration for each service
+- ✅ Environment variable templates
+- ✅ Database setup guide (MongoDB, Redis)
+- ✅ Automated deployment configs
+- ✅ Cost optimization tips
 
 ## Project Structure
 

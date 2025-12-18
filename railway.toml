@@ -1,0 +1,9 @@
+# Railway Configuration for ERP System Backend
+# This file is used to configure Railway deployments for the ERP system
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

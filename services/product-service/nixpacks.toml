@@ -1,0 +1,17 @@
+[phases.setup]
+nixPkgs = ["go_1_23"]
+
+[phases.install]
+cmds = [
+    "cd /app && cp -r shared /tmp/shared",
+    "cd /app/services/product-service && go mod download"
+]
+
+[phases.build]
+cmds = [
+    "cd /app && cp -r /tmp/shared .",
+    "cd /app/services/product-service && CGO_ENABLED=0 GOOS=linux go build -o product-service ./cmd/main.go"
+]
+
+[start]
+cmd = "cd /app/services/product-service && ./product-service"

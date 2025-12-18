@@ -1,0 +1,151 @@
+# Railway Deployment via GitHub Actions
+# 
+# This workflow automatically deploys services to Railway when changes are pushed
+# 
+# Setup:
+# 1. Get your Railway token: railway login && railway whoami --token
+# 2. Add RAILWAY_TOKEN to GitHub Secrets
+# 3. Add RAILWAY_PROJECT_ID to GitHub Secrets (get from Railway dashboard)
+# 4. Uncomment and customize the workflow below
+
+# name: Deploy to Railway
+# 
+# on:
+#   push:
+#     branches:
+#       - main
+#       - branch-railway
+#     paths:
+#       - 'services/**'
+#       - 'shared/**'
+# 
+# jobs:
+#   detect-changes:
+#     runs-on: ubuntu-latest
+#     outputs:
+#       auth: ${{ steps.filter.outputs.auth }}
+#       org: ${{ steps.filter.outputs.org }}
+#       product: ${{ steps.filter.outputs.product }}
+#       inventory: ${{ steps.filter.outputs.inventory }}
+#       license: ${{ steps.filter.outputs.license }}
+#       subscription: ${{ steps.filter.outputs.subscription }}
+#     steps:
+#       - uses: actions/checkout@v3
+#       - uses: dorny/paths-filter@v2
+#         id: filter
+#         with:
+#           filters: |
+#             auth:
+#               - 'services/auth-service/**'
+#               - 'shared/**'
+#             org:
+#               - 'services/org-service/**'
+#               - 'shared/**'
+#             product:
+#               - 'services/product-service/**'
+#               - 'shared/**'
+#             inventory:
+#               - 'services/inventory-service/**'
+#               - 'shared/**'
+#             license:
+#               - 'services/license-service/**'
+#               - 'shared/**'
+#             subscription:
+#               - 'services/subscription-service/**'
+#               - 'shared/**'
+# 
+#   deploy-auth:
+#     needs: detect-changes
+#     if: needs.detect-changes.outputs.auth == 'true'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v3
+#       - name: Install Railway CLI
+#         run: npm install -g @railway/cli
+#       - name: Deploy Auth Service
+#         run: |
+#           cd services/auth-service
+#           railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+#           railway up --service auth-service
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+# 
+#   deploy-org:
+#     needs: detect-changes
+#     if: needs.detect-changes.outputs.org == 'true'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v3
+#       - name: Install Railway CLI
+#         run: npm install -g @railway/cli
+#       - name: Deploy Org Service
+#         run: |
+#           cd services/org-service
+#           railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+#           railway up --service org-service
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+# 
+#   deploy-product:
+#     needs: detect-changes
+#     if: needs.detect-changes.outputs.product == 'true'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v3
+#       - name: Install Railway CLI
+#         run: npm install -g @railway/cli
+#       - name: Deploy Product Service
+#         run: |
+#           cd services/product-service
+#           railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+#           railway up --service product-service
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+# 
+#   deploy-inventory:
+#     needs: detect-changes
+#     if: needs.detect-changes.outputs.inventory == 'true'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v3
+#       - name: Install Railway CLI
+#         run: npm install -g @railway/cli
+#       - name: Deploy Inventory Service
+#         run: |
+#           cd services/inventory-service
+#           railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+#           railway up --service inventory-service
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+# 
+#   deploy-license:
+#     needs: detect-changes
+#     if: needs.detect-changes.outputs.license == 'true'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v3
+#       - name: Install Railway CLI
+#         run: npm install -g @railway/cli
+#       - name: Deploy License Service
+#         run: |
+#           cd services/license-service
+#           railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+#           railway up --service license-service
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+# 
+#   deploy-subscription:
+#     needs: detect-changes
+#     if: needs.detect-changes.outputs.subscription == 'true'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v3
+#       - name: Install Railway CLI
+#         run: npm install -g @railway/cli
+#       - name: Deploy Subscription Service
+#         run: |
+#           cd services/subscription-service
+#           railway link ${{ secrets.RAILWAY_PROJECT_ID }}
+#           railway up --service subscription-service
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
