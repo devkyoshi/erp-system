@@ -58,29 +58,32 @@ make migrate
 make dev
 ```
 
-### Railway Deployment
+### Railway Deployment (Production)
 
-Want to deploy to production? We've made it easy!
+Deploy all services to Railway with automated scripts!
 
-**🚂 Railway Deployment Guide**
-- See [RAILWAY_SETUP_SUMMARY.md](./RAILWAY_SETUP_SUMMARY.md) for quick start
-- See [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md) for detailed guide
-- See [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md) for all env vars
-
+**🚂 Quick Deploy (3 Steps)**
 ```bash
-# Quick deploy
-npm install -g @railway/cli
-railway login
-bash scripts/railway-setup.sh
-# Follow the steps in RAILWAY_DEPLOYMENT.md
+# 1. Setup (one time)
+bash scripts/railway-init.sh
+
+# 2. Configure Railway dashboard (see guide below)
+
+# 3. Deploy
+bash scripts/deploy-railway.sh
 ```
 
-Railway deployment includes:
-- ✅ Nixpacks configuration for each service
-- ✅ Environment variable templates
-- ✅ Database setup guide (MongoDB, Redis)
-- ✅ Automated deployment configs
-- ✅ Cost optimization tips
+**📚 Documentation**
+- **[RAILWAY_SIMPLE_GUIDE.md](./RAILWAY_SIMPLE_GUIDE.md)** ← START HERE
+- [RAILWAY_SOLUTION.md](./RAILWAY_SOLUTION.md) - Complete overview
+- [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md) - All env vars
+
+**Features:**
+- ✅ Automated deployment scripts
+- ✅ Smart change detection (deploy only what changed)
+- ✅ Keeps Dockerfiles for local dev
+- ✅ Monorepo-friendly setup
+- ✅ One-command deployment
 
 ## Project Structure
 
