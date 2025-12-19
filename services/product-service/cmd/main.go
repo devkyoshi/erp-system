@@ -29,7 +29,6 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// Connect to MongoDB
-	// Connect to MongoDB
 	mongoDB, err := database.NewMongoDB(cfg.MongoURI, "erp_db")
 	if err != nil {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)
@@ -43,15 +42,10 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	// if os.Getenv("ENVIRONMENT") == "development" {
-	// 	if err := createIndexes(mongoDB.Database); err != nil {
-	// 		log.Fatalf("Failed to create indexes: %v", err)
-	// 	}
-	// }
-
-	// Create indexes
-	if err := createIndexes(mongoDB.Database); err != nil {
-		log.Fatalf("Failed to create indexes: %v", err)
+	if os.Getenv("ENVIRONMENT") == "development" {
+		if err := createIndexes(mongoDB.Database); err != nil {
+			log.Fatalf("Failed to create indexes: %v", err)
+		}
 	}
 
 	// Initialize JWT manager
