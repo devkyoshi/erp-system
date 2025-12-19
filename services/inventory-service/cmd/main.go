@@ -84,7 +84,7 @@ func main() {
 	inventoryHandler.RegisterRoutes(api, jwtManager)
 
 	// Start server
-	port := fmt.Sprintf(":%s", cfg.Port)
+	port := fmt.Sprintf("0.0.0.0:%s", cfg.Port)
 	log.Printf("Inventory Service starting on port %s", cfg.Port)
 	if err := router.Run(port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
