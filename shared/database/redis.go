@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -14,16 +15,34 @@ type RedisClient struct {
 }
 
 // NewRedisClient creates a new Redis client
+// Accepts both formats: "host:port" or "redis://user:pass@host:port"
 func NewRedisClient(addr string) (*RedisClient, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:         addr,
-		Password:     "", // no password set
-		DB:           0,  // use default DB
-		DialTimeout:  5 * time.Second,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 3 * time.Second,
-		PoolSize:     10,
-	})
+	var client *redis.Client
+
+	// Check if it's a Redis URL (starts with redis://)
+	if strings.HasPrefix(addr, "redis://") || strings.HasPrefix(addr, "rediss://") {
+		// Parse Redis URL
+		opt, err := redis.ParseURL(addr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse Redis URL: %w", err)
+		}
+		opt.DialTimeout = 5 * time.Second
+		opt.ReadTimeout = 3 * time.Second
+		opt.WriteTimeout = 3 * time.Second
+		opt.PoolSize = 10
+		client = redis.NewClient(opt)
+	} else {
+		// Use host:port format
+		client = redis.NewClient(&redis.Options{
+			Addr:         addr,
+			Password:     "", // no password set
+			DB:           0,  // use default DB
+			DialTimeout:  5 * time.Second,
+			ReadTimeout:  3 * time.Second,
+			WriteTimeout: 3 * time.Second,
+			PoolSize:     10,
+		})
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
