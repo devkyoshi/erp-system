@@ -43,11 +43,11 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	if os.Getenv("ENVIRONMENT") == "development" {
-		if err := createIndexes(mongoDB.Database); err != nil {
-			log.Fatalf("Failed to create indexes: %v", err)
-		}
-	}
+	// if os.Getenv("ENVIRONMENT") == "development" {
+	// 	if err := createIndexes(mongoDB.Database); err != nil {
+	// 		log.Fatalf("Failed to create indexes: %v", err)
+	// 	}
+	// }
 
 	// Create indexes
 	if err := createIndexes(mongoDB.Database); err != nil {
