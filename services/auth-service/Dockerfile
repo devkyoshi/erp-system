@@ -29,6 +29,4 @@ WORKDIR /root/
 
 COPY --from=builder /app/bin/auth-service .
 
-EXPOSE 8001
-
 CMD ["./auth-service"]

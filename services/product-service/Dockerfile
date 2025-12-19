@@ -29,6 +29,4 @@ WORKDIR /root/
 
 COPY --from=builder /app/bin/product-service .
 
-EXPOSE 8003
-
 CMD ["./product-service"]

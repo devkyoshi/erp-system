@@ -29,6 +29,4 @@ WORKDIR /root/
 
 COPY --from=builder /app/bin/org-service .
 
-EXPOSE 8002
-
 CMD ["./org-service"]

@@ -25,6 +25,4 @@ WORKDIR /root/
 
 COPY --from=builder /license-service .
 
-EXPOSE 8004
-
 CMD ["./license-service"]

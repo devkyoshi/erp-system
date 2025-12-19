@@ -27,8 +27,6 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
-COPY --from=builder /app/bin/subscription-service .
-
-EXPOSE 8003
+COPY --from=builder /subscription-service .
 
 CMD ["./subscription-service"]

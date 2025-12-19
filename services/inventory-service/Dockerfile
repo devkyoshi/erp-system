@@ -11,5 +11,4 @@ FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 COPY --from=builder /inventory-service .
-EXPOSE 8006
 CMD ["./inventory-service"]
