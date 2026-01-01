@@ -5,26 +5,23 @@ import (
 	"fmt"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"github.com/yourusername/erp-system/services/inventory-service/internal/repository"
 	"github.com/yourusername/erp-system/shared/models"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type StockService struct {
-	productRepo  *repository.ProductRepository
 	stockRepo    *repository.StockLevelRepository
 	movementRepo *repository.StockMovementRepository
 	batchRepo    *repository.BatchRepository
 }
 
 func NewStockService(
-	productRepo *repository.ProductRepository,
 	stockRepo *repository.StockLevelRepository,
 	movementRepo *repository.StockMovementRepository,
 	batchRepo *repository.BatchRepository,
 ) *StockService {
 	return &StockService{
-		productRepo:  productRepo,
 		stockRepo:    stockRepo,
 		movementRepo: movementRepo,
 		batchRepo:    batchRepo,
@@ -32,17 +29,17 @@ func NewStockService(
 }
 
 type StockMovementRequest struct {
-	ProductID      string               `json:"product_id" binding:"required"`
-	MovementType   models.MovementType  `json:"movement_type" binding:"required"`
-	FromLocationID string               `json:"from_location_id"`
-	ToLocationID   string               `json:"to_location_id"`
-	Quantity       float64              `json:"quantity" binding:"required,gt=0"`
-	UnitCost       float64              `json:"unit_cost"`
-	ReferenceType  string               `json:"reference_type"`
-	ReferenceNo    string               `json:"reference_no"`
-	Reason         string               `json:"reason"`
-	Notes          string               `json:"notes"`
-	BatchNumber    string               `json:"batch_number"`
+	ProductID      string              `json:"product_id" binding:"required"`
+	MovementType   models.MovementType `json:"movement_type" binding:"required"`
+	FromLocationID string              `json:"from_location_id"`
+	ToLocationID   string              `json:"to_location_id"`
+	Quantity       float64             `json:"quantity" binding:"required,gt=0"`
+	UnitCost       float64             `json:"unit_cost"`
+	ReferenceType  string              `json:"reference_type"`
+	ReferenceNo    string              `json:"reference_no"`
+	Reason         string              `json:"reason"`
+	Notes          string              `json:"notes"`
+	BatchNumber    string              `json:"batch_number"`
 }
 
 func (s *StockService) CreateStockMovement(ctx context.Context, orgID primitive.ObjectID, req StockMovementRequest, createdBy primitive.ObjectID) (*models.StockMovement, error) {
@@ -52,10 +49,9 @@ func (s *StockService) CreateStockMovement(ctx context.Context, orgID primitive.
 		return nil, fmt.Errorf("invalid product ID: %w", err)
 	}
 
-	// Verify product exists
-	product, err := s.productRepo.FindByID(ctx, productID)
-	if err != nil {
-		return nil, fmt.Errorf("product not found: %w", err)
+	uom := "unit" // Default UOM
+	if req.UnitCost == 0 {
+		uom = ""
 	}
 
 	movement := &models.StockMovement{
@@ -63,7 +59,7 @@ func (s *StockService) CreateStockMovement(ctx context.Context, orgID primitive.
 		ProductID:      productID,
 		MovementType:   req.MovementType,
 		Quantity:       req.Quantity,
-		UOM:            product.BaseUOM,
+		UOM:            uom,
 		UnitCost:       req.UnitCost,
 		TotalCost:      req.Quantity * req.UnitCost,
 		ReferenceType:  req.ReferenceType,
@@ -112,9 +108,9 @@ func (s *StockService) CreateStockMovement(ctx context.Context, orgID primitive.
 		if err := s.stockRepo.AdjustQuantity(ctx, productID, *movement.ToLocationID, req.Quantity, req.UnitCost); err != nil {
 			return nil, fmt.Errorf("failed to adjust stock: %w", err)
 		}
-		
-		// Create batch if product tracks batches
-		if product.TrackBatches && req.BatchNumber != "" {
+
+		// Create batch if batch number is provided
+		if req.BatchNumber != "" {
 			batch := &models.Batch{
 				OrganizationID:  orgID,
 				ProductID:       productID,
@@ -155,9 +151,6 @@ func (s *StockService) CreateStockMovement(ctx context.Context, orgID primitive.
 		}
 	}
 
-	// Update product stock summary
-	s.updateProductStockSummary(ctx, productID)
-
 	return movement, nil
 }
 
@@ -185,28 +178,31 @@ func (s *StockService) GetStockMovements(ctx context.Context, productID primitiv
 	return movements, nil
 }
 
+func (s *StockService) GetStockMovement(ctx context.Context, id primitive.ObjectID) (*models.StockMovement, error) {
+	return s.movementRepo.FindByID(ctx, id)
+}
+
+func (s *StockService) ListStockMovements(ctx context.Context, organizationID primitive.ObjectID, filters map[string]interface{}, page, limit int) ([]models.StockMovement, error) {
+	filters["organization_id"] = organizationID
+	filters["deleted"] = false
+	return s.movementRepo.Find(ctx, filters, page, limit)
+}
+
+func (s *StockService) GetStockMovementsByLocation(ctx context.Context, locationID primitive.ObjectID) ([]models.StockMovement, error) {
+	filters := map[string]interface{}{
+		"$or": []interface{}{
+			map[string]interface{}{"from_location_id": locationID},
+			map[string]interface{}{"to_location_id": locationID},
+		},
+		"deleted": false,
+	}
+	return s.movementRepo.Find(ctx, filters, 1, 100)
+}
+
 func (s *StockService) GetBatches(ctx context.Context, productID, locationID primitive.ObjectID, activeOnly bool) ([]*models.Batch, error) {
 	batches, err := s.batchRepo.FindByProduct(ctx, productID, locationID, activeOnly)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get batches: %w", err)
 	}
 	return batches, nil
-}
-
-func (s *StockService) updateProductStockSummary(ctx context.Context, productID primitive.ObjectID) error {
-	// Get all stock levels for this product
-	stocks, err := s.stockRepo.FindByProduct(ctx, productID)
-	if err != nil {
-		return err
-	}
-
-	var totalStock, availableStock, allocatedStock, totalValue float64
-	for _, stock := range stocks {
-		totalStock += stock.QuantityOnHand
-		availableStock += stock.QuantityAvailable
-		allocatedStock += stock.QuantityAllocated
-		totalValue += stock.TotalValue
-	}
-
-	return s.productRepo.UpdateStockSummary(ctx, productID, totalStock, availableStock, allocatedStock, totalValue)
 }

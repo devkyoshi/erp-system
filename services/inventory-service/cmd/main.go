@@ -45,17 +45,30 @@ func main() {
 	}
 
 	// Initialize repositories
-	productRepo := repository.NewProductRepository(db)
 	stockLevelRepo := repository.NewStockLevelRepository(db)
 	stockMovementRepo := repository.NewStockMovementRepository(db)
 	batchRepo := repository.NewBatchRepository(db)
+	adjustmentRepo := repository.NewStockAdjustmentRepository(db)
+	countRepo := repository.NewInventoryCountRepository(db)
+	serialRepo := repository.NewSerialNumberRepository(db)
 
 	// Initialize services
-	productService := service.NewProductService(productRepo, stockLevelRepo)
-	stockService := service.NewStockService(productRepo, stockLevelRepo, stockMovementRepo, batchRepo)
+	stockLevelService := service.NewStockLevelService(stockLevelRepo)
+	stockService := service.NewStockService(stockLevelRepo, stockMovementRepo, batchRepo)
+	batchService := service.NewBatchService(batchRepo, stockLevelRepo)
+	adjustmentService := service.NewStockAdjustmentService(adjustmentRepo, stockLevelRepo, stockMovementRepo)
+	countService := service.NewInventoryCountService(countRepo, stockLevelRepo, adjustmentRepo)
+	serialNumberService := service.NewSerialNumberService(serialRepo, stockLevelRepo)
 
 	// Initialize handlers
-	inventoryHandler := handlers.NewInventoryHandler(productService, stockService)
+	inventoryHandler := handlers.NewInventoryHandler(
+		stockLevelService,
+		stockService,
+		batchService,
+		adjustmentService,
+		countService,
+		serialNumberService,
+	)
 
 	// Initialize JWT manager
 	jwtManager := utils.NewJWTManager(cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
@@ -68,7 +81,8 @@ func main() {
 	router := gin.Default()
 	router.Use(middleware.CORSMiddleware())
 
-	//TODO: router.Use(middleware.RateLimitMiddleware())
+	// TODO: Implement rate limiting
+	// router.Use(middleware.RateLimitMiddleware())
 
 	// Health check
 	router.GET("/health", func(c *gin.Context) {
@@ -93,33 +107,6 @@ func main() {
 
 func createIndexes(db *mongo.Database) error {
 	ctx := context.Background()
-
-	// Products indexes
-	productIndexes := []mongo.IndexModel{
-		{
-			Keys:    bson.D{{Key: "organization_id", Value: 1}, {Key: "sku", Value: 1}},
-			Options: options.Index().SetUnique(true).SetName("idx_product_org_sku"),
-		},
-		{
-			Keys:    bson.D{{Key: "organization_id", Value: 1}, {Key: "status", Value: 1}},
-			Options: options.Index().SetName("idx_product_org_status"),
-		},
-		{
-			Keys:    bson.D{{Key: "barcode", Value: 1}},
-			Options: options.Index().SetName("idx_product_barcode"),
-		},
-		{
-			Keys:    bson.D{{Key: "category_id", Value: 1}},
-			Options: options.Index().SetName("idx_product_category"),
-		},
-		{
-			Keys:    bson.D{{Key: "deleted_at", Value: 1}},
-			Options: options.Index().SetName("idx_product_deleted"),
-		},
-	}
-	if _, err := db.Collection("products").Indexes().CreateMany(ctx, productIndexes); err != nil {
-		return fmt.Errorf("failed to create product indexes: %w", err)
-	}
 
 	// Stock levels indexes
 	stockIndexes := []mongo.IndexModel{
@@ -176,6 +163,63 @@ func createIndexes(db *mongo.Database) error {
 	}
 	if _, err := db.Collection("batches").Indexes().CreateMany(ctx, batchIndexes); err != nil {
 		return fmt.Errorf("failed to create batch indexes: %w", err)
+	}
+
+	// Stock adjustments indexes
+	adjustmentIndexes := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "organization_id", Value: 1}, {Key: "adjustment_date", Value: -1}},
+			Options: options.Index().SetName("idx_adjustment_org_date"),
+		},
+		{
+			Keys:    bson.D{{Key: "location_id", Value: 1}, {Key: "status", Value: 1}},
+			Options: options.Index().SetName("idx_adjustment_location_status"),
+		},
+		{
+			Keys:    bson.D{{Key: "adjustment_no", Value: 1}},
+			Options: options.Index().SetName("idx_adjustment_no"),
+		},
+	}
+	if _, err := db.Collection("stock_adjustments").Indexes().CreateMany(ctx, adjustmentIndexes); err != nil {
+		return fmt.Errorf("failed to create adjustment indexes: %w", err)
+	}
+
+	// Inventory counts indexes
+	countIndexes := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "organization_id", Value: 1}, {Key: "count_date", Value: -1}},
+			Options: options.Index().SetName("idx_count_org_date"),
+		},
+		{
+			Keys:    bson.D{{Key: "location_id", Value: 1}, {Key: "status", Value: 1}},
+			Options: options.Index().SetName("idx_count_location_status"),
+		},
+		{
+			Keys:    bson.D{{Key: "count_no", Value: 1}},
+			Options: options.Index().SetName("idx_count_no"),
+		},
+	}
+	if _, err := db.Collection("inventory_counts").Indexes().CreateMany(ctx, countIndexes); err != nil {
+		return fmt.Errorf("failed to create count indexes: %w", err)
+	}
+
+	// Serial numbers indexes
+	serialIndexes := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "organization_id", Value: 1}, {Key: "serial_no", Value: 1}},
+			Options: options.Index().SetUnique(true).SetName("idx_serial_org_no"),
+		},
+		{
+			Keys:    bson.D{{Key: "product_id", Value: 1}, {Key: "is_available", Value: 1}},
+			Options: options.Index().SetName("idx_serial_product_available"),
+		},
+		{
+			Keys:    bson.D{{Key: "status", Value: 1}},
+			Options: options.Index().SetName("idx_serial_status"),
+		},
+	}
+	if _, err := db.Collection("serial_numbers").Indexes().CreateMany(ctx, serialIndexes); err != nil {
+		return fmt.Errorf("failed to create serial number indexes: %w", err)
 	}
 
 	log.Println("Database indexes created successfully")

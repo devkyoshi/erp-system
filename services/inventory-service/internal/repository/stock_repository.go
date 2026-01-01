@@ -72,16 +72,16 @@ func (r *StockLevelRepository) Upsert(ctx context.Context, stock *models.StockLe
 
 	update := bson.M{
 		"$set": bson.M{
-			"quantity_on_hand":     stock.QuantityOnHand,
-			"quantity_available":   stock.QuantityAvailable,
-			"quantity_allocated":   stock.QuantityAllocated,
-			"quantity_in_transit":  stock.QuantityInTransit,
-			"quantity_reserved":    stock.QuantityReserved,
-			"average_cost":         stock.AverageCost,
-			"last_cost":            stock.LastCost,
-			"total_value":          stock.TotalValue,
-			"last_movement_date":   now,
-			"updated_at":           now,
+			"quantity_on_hand":    stock.QuantityOnHand,
+			"quantity_available":  stock.QuantityAvailable,
+			"quantity_allocated":  stock.QuantityAllocated,
+			"quantity_in_transit": stock.QuantityInTransit,
+			"quantity_reserved":   stock.QuantityReserved,
+			"average_cost":        stock.AverageCost,
+			"last_cost":           stock.LastCost,
+			"total_value":         stock.TotalValue,
+			"last_movement_date":  now,
+			"updated_at":          now,
 		},
 		"$setOnInsert": bson.M{
 			"_id":             primitive.NewObjectID(),
@@ -112,7 +112,7 @@ func (r *StockLevelRepository) AdjustQuantity(ctx context.Context, productID, lo
 
 	newQty := currentStock.QuantityOnHand + delta
 	var newAvgCost float64
-	
+
 	// Calculate weighted average cost
 	if delta > 0 && cost > 0 {
 		totalValue := (currentStock.QuantityOnHand * currentStock.AverageCost) + (delta * cost)
@@ -126,12 +126,12 @@ func (r *StockLevelRepository) AdjustQuantity(ctx context.Context, productID, lo
 			"quantity_on_hand": delta,
 		},
 		"$set": bson.M{
-			"quantity_available":   newQty - currentStock.QuantityAllocated,
-			"average_cost":         newAvgCost,
-			"last_cost":            cost,
-			"total_value":          newQty * newAvgCost,
-			"last_movement_date":   time.Now(),
-			"updated_at":           time.Now(),
+			"quantity_available": newQty - currentStock.QuantityAllocated,
+			"average_cost":       newAvgCost,
+			"last_cost":          cost,
+			"total_value":        newQty * newAvgCost,
+			"last_movement_date": time.Now(),
+			"updated_at":         time.Now(),
 		},
 	}
 
@@ -164,7 +164,7 @@ func (r *StockMovementRepository) Create(ctx context.Context, movement *models.S
 func (r *StockMovementRepository) FindByProduct(ctx context.Context, productID primitive.ObjectID, page, limit int) ([]*models.StockMovement, error) {
 	filter := bson.M{"product_id": productID}
 	opts := options.Find().SetSort(bson.D{{Key: "movement_date", Value: -1}})
-	
+
 	if limit > 0 {
 		opts.SetLimit(int64(limit))
 		opts.SetSkip(int64((page - 1) * limit))
@@ -261,4 +261,44 @@ func (r *BatchRepository) UpdateQuantity(ctx context.Context, batchID primitive.
 	}
 	_, err := r.collection.UpdateOne(ctx, filter, update)
 	return err
+}
+
+func (r *BatchRepository) FindBatchByID(ctx context.Context, id primitive.ObjectID) (*models.Batch, error) {
+	var batch models.Batch
+	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&batch)
+	if err != nil {
+		return nil, err
+	}
+	return &batch, nil
+}
+
+// ==================== StockMovementRepository Additional Methods ====================
+
+func (r *StockMovementRepository) FindByID(ctx context.Context, id primitive.ObjectID) (*models.StockMovement, error) {
+	var movement models.StockMovement
+	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&movement)
+	if err != nil {
+		return nil, err
+	}
+	return &movement, nil
+}
+
+func (r *StockMovementRepository) Find(ctx context.Context, filters map[string]interface{}, page, limit int) ([]models.StockMovement, error) {
+	skip := (page - 1) * limit
+	opts := options.Find().
+		SetSort(bson.D{{Key: "created_at", Value: -1}}).
+		SetSkip(int64(skip)).
+		SetLimit(int64(limit))
+
+	cursor, err := r.collection.Find(ctx, filters, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var movements []models.StockMovement
+	if err = cursor.All(ctx, &movements); err != nil {
+		return nil, err
+	}
+	return movements, nil
 }
