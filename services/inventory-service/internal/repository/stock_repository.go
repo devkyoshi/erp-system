@@ -290,15 +290,23 @@ func (r *StockMovementRepository) Find(ctx context.Context, filters map[string]i
 		SetSkip(int64(skip)).
 		SetLimit(int64(limit))
 
-	cursor, err := r.collection.Find(ctx, filters, opts)
+	// Convert filters map to bson.M for proper MongoDB querying
+	bsonFilters := bson.M{}
+	for k, v := range filters {
+		bsonFilters[k] = v
+	}
+
+	cursor, err := r.collection.Find(ctx, bsonFilters, opts)
 	if err != nil {
-		return nil, err
+		return []models.StockMovement{}, err
 	}
 	defer cursor.Close(ctx)
 
-	var movements []models.StockMovement
+	// Initialize with empty slice instead of nil to avoid JSON null
+	movements := make([]models.StockMovement, 0)
 	if err = cursor.All(ctx, &movements); err != nil {
-		return nil, err
+		return []models.StockMovement{}, err
 	}
+
 	return movements, nil
 }

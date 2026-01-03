@@ -1093,92 +1093,9 @@ Soft-delete a serial number.
 }
 ```
 
----
 
-## Error Responses
 
-All endpoints return consistent error responses:
 
-```json
-{
-  "status": "error",
-  "error_code": "ERROR_CODE",
-  "message": "Human readable error message",
-  "details": {}
-}
-```
+supplier model
 
-### Common Error Codes:
 
-- `INVALID_ID`: Invalid ID format
-- `NOT_FOUND`: Resource not found
-- `VALIDATION_ERROR`: Request validation failed
-- `UNAUTHORIZED`: Authentication required
-- `FORBIDDEN`: Insufficient permissions
-- `CREATE_FAILED`: Failed to create resource
-- `UPDATE_FAILED`: Failed to update resource
-- `DELETE_FAILED`: Failed to delete resource
-- `INSUFFICIENT_STOCK`: Not enough stock available
-- `ALREADY_EXISTS`: Resource already exists
-- `INVALID_STATUS`: Operation not allowed for current status
-
-### HTTP Status Codes:
-
-- `200 OK`: Successful GET/PUT/DELETE request
-- `201 Created`: Successful POST request
-- `400 Bad Request`: Validation error or bad input
-- `401 Unauthorized`: Authentication required
-- `403 Forbidden`: Insufficient permissions
-- `404 Not Found`: Resource not found
-- `500 Internal Server Error`: Server error
-
----
-
-## Pagination
-
-List endpoints support pagination with the following query parameters:
-
-- `page` (integer): Page number, starting from 1 (default: 1)
-- `limit` (integer): Number of items per page (default: 20, max: 100)
-
-Paginated responses include metadata:
-
-```json
-{
-  "status": "success",
-  "message": "Items retrieved successfully",
-  "data": [...],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 150,
-    "total_pages": 8
-  }
-}
-```
-
----
-
-## Best Practices
-
-1. **Stock Movements**: Always create stock movements for all inventory transactions to maintain an accurate audit trail.
-
-2. **Batch Tracking**: Use batches for products with expiry dates or that require lot traceability.
-
-3. **Serial Numbers**: Implement serial number tracking for high-value items or items requiring warranty management.
-
-4. **Stock Adjustments**: Always provide detailed reasons for stock adjustments and use the approval workflow.
-
-5. **Inventory Counts**: Perform regular cycle counts to maintain inventory accuracy. Set `create_adjustment: true` to automatically adjust variances.
-
-6. **Allocations**: Always allocate stock when creating sales orders to prevent overselling.
-
-7. **Error Handling**: Implement proper error handling for all API calls and check stock availability before transactions.
-
-8. **Idempotency**: For critical operations, implement retry logic with idempotency keys to prevent duplicate transactions.
-
----
-
-## Support
-
-For questions or issues, please contact the development team or refer to the main ERP system documentation.

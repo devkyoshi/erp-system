@@ -114,6 +114,28 @@ services:
     networks:
       - erp-network
 
+  # Inventory Service
+  inventory-service:
+    build:
+      context: .
+      dockerfile: ./services/inventory-service/Dockerfile
+    container_name: erp-inventory-service
+    restart: unless-stopped
+    environment:
+      PORT: 8004
+      MONGO_URI: mongodb://admin:admin123@mongodb:27017
+      REDIS_ADDR: redis:6379
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+    ports:
+      - "8004:8004"
+    depends_on:
+      - mongodb
+      - redis
+      - rabbitmq
+    networks:
+      - erp-network
+
 volumes:
   mongodb_data:
   redis_data:

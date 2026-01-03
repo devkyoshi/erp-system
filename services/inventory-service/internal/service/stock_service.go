@@ -7,6 +7,7 @@ import (
 
 	"github.com/yourusername/erp-system/services/inventory-service/internal/repository"
 	"github.com/yourusername/erp-system/shared/models"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -184,17 +185,18 @@ func (s *StockService) GetStockMovement(ctx context.Context, id primitive.Object
 
 func (s *StockService) ListStockMovements(ctx context.Context, organizationID primitive.ObjectID, filters map[string]interface{}, page, limit int) ([]models.StockMovement, error) {
 	filters["organization_id"] = organizationID
-	filters["deleted"] = false
+	// Only get non-deleted records (deleted_at is nil or doesn't exist)
+	filters["deleted_at"] = bson.M{"$exists": false}
 	return s.movementRepo.Find(ctx, filters, page, limit)
 }
 
 func (s *StockService) GetStockMovementsByLocation(ctx context.Context, locationID primitive.ObjectID) ([]models.StockMovement, error) {
 	filters := map[string]interface{}{
-		"$or": []interface{}{
-			map[string]interface{}{"from_location_id": locationID},
-			map[string]interface{}{"to_location_id": locationID},
+		"$or": []bson.M{
+			bson.M{"from_location_id": locationID},
+			bson.M{"to_location_id": locationID},
 		},
-		"deleted": false,
+		"deleted_at": bson.M{"$exists": false},
 	}
 	return s.movementRepo.Find(ctx, filters, 1, 100)
 }
