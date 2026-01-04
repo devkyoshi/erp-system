@@ -170,3 +170,28 @@ func (r *CompanyRepository) CountByOrganization(ctx context.Context, orgID primi
 
 	return int(count), nil
 }
+
+// FindByIDs finds multiple companies by their IDs
+func (r *CompanyRepository) FindByIDs(ctx context.Context, companyIDs []primitive.ObjectID) ([]*models.Company, error) {
+	if len(companyIDs) == 0 {
+		return []*models.Company{}, nil
+	}
+
+	filter := bson.M{
+		"_id":        bson.M{"$in": companyIDs},
+		"deleted_at": nil,
+	}
+
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find companies: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var companies []*models.Company
+	if err := cursor.All(ctx, &companies); err != nil {
+		return nil, fmt.Errorf("failed to decode companies: %w", err)
+	}
+
+	return companies, nil
+}

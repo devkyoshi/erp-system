@@ -208,3 +208,28 @@ func (r *LocationRepository) CountByOrganization(ctx context.Context, orgID prim
 
 	return int(count), nil
 }
+
+// FindByIDs finds multiple locations by their IDs
+func (r *LocationRepository) FindByIDs(ctx context.Context, locationIDs []primitive.ObjectID) ([]*models.Location, error) {
+	if len(locationIDs) == 0 {
+		return []*models.Location{}, nil
+	}
+
+	filter := bson.M{
+		"_id":        bson.M{"$in": locationIDs},
+		"deleted_at": nil,
+	}
+
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find locations: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var locations []*models.Location
+	if err := cursor.All(ctx, &locations); err != nil {
+		return nil, fmt.Errorf("failed to decode locations: %w", err)
+	}
+
+	return locations, nil
+}

@@ -294,11 +294,49 @@ func (h *OrganizationHandler) ListLocations(c *gin.Context) {
 	utils.PaginatedResponse(c, locations, page, limit, total)
 }
 
+// GetUserAccess retrieves all organizations, companies, and locations accessible by the logged-in user
+func (h *OrganizationHandler) GetUserAccess(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not authenticated", nil)
+		return
+	}
+
+	orgID := middleware.GetOrganizationID(c)
+	if orgID == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "Organization ID not found", nil)
+		return
+	}
+
+	userObjID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid user ID", nil)
+		return
+	}
+
+	orgObjID, err := primitive.ObjectIDFromHex(orgID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid organization ID", nil)
+		return
+	}
+
+	accessData, err := h.orgService.GetUserAccess(c.Request.Context(), userObjID, orgObjID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "FETCH_FAILED", err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, accessData, "User access data retrieved successfully")
+}
+
 // RegisterRoutes registers all organization routes
 func (h *OrganizationHandler) RegisterRoutes(router *gin.RouterGroup, jwtManager *utils.JWTManager) {
 	// All routes require authentication
 	protected := router.Group("")
 	protected.Use(middleware.AuthMiddleware(jwtManager))
+
+	// User access endpoint
+	protected.GET("/users/me/access", h.GetUserAccess)
 
 	// Organizations
 	orgs := protected.Group("/organizations")

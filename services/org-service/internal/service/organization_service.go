@@ -11,20 +11,23 @@ import (
 )
 
 type OrganizationService struct {
-	orgRepo      *repository.OrganizationRepository
-	companyRepo  *repository.CompanyRepository
-	locationRepo *repository.LocationRepository
+	orgRepo          *repository.OrganizationRepository
+	companyRepo      *repository.CompanyRepository
+	locationRepo     *repository.LocationRepository
+	locationUserRepo *repository.LocationUserRepository
 }
 
 func NewOrganizationService(
 	orgRepo *repository.OrganizationRepository,
 	companyRepo *repository.CompanyRepository,
 	locationRepo *repository.LocationRepository,
+	locationUserRepo *repository.LocationUserRepository,
 ) *OrganizationService {
 	return &OrganizationService{
-		orgRepo:      orgRepo,
-		companyRepo:  companyRepo,
-		locationRepo: locationRepo,
+		orgRepo:          orgRepo,
+		companyRepo:      companyRepo,
+		locationRepo:     locationRepo,
+		locationUserRepo: locationUserRepo,
 	}
 }
 
@@ -485,3 +488,83 @@ type CreateLocationRequest struct {
 	StoreInfo     *models.StoreInfo     `json:"store_info"`
 	IsDefault     bool                  `json:"is_default"`
 }
+
+// GetUserAccess retrieves all organizations, companies, and locations accessible by a user
+func (s *OrganizationService) GetUserAccess(ctx context.Context, userID primitive.ObjectID, orgID primitive.ObjectID) (*UserAccessResponse, error) {
+	// Get the user's organization
+	org, err := s.orgRepo.FindByID(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+	if org == nil {
+		return nil, fmt.Errorf("organization not found")
+	}
+
+	// Get all locations the user has access to
+	locationIDs, err := s.locationUserRepo.FindLocationsByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get location details
+	locations, err := s.locationRepo.FindByIDs(ctx, locationIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract unique company IDs from locations
+	companyIDMap := make(map[primitive.ObjectID]bool)
+	for _, loc := range locations {
+		companyIDMap[loc.CompanyID] = true
+	}
+
+	companyIDs := make([]primitive.ObjectID, 0, len(companyIDMap))
+	for companyID := range companyIDMap {
+		companyIDs = append(companyIDs, companyID)
+	}
+
+	// Get company details
+	companies, err := s.companyRepo.FindByIDs(ctx, companyIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Organize data by company
+	companyMap := make(map[primitive.ObjectID]*CompanyWithLocations)
+	for _, company := range companies {
+		companyMap[company.ID] = &CompanyWithLocations{
+			Company:   company,
+			Locations: []*models.Location{},
+		}
+	}
+
+	// Add locations to their respective companies
+	for _, loc := range locations {
+		if companyData, exists := companyMap[loc.CompanyID]; exists {
+			companyData.Locations = append(companyData.Locations, loc)
+		}
+	}
+
+	// Convert map to slice
+	companiesWithLocations := make([]*CompanyWithLocations, 0, len(companyMap))
+	for _, companyData := range companyMap {
+		companiesWithLocations = append(companiesWithLocations, companyData)
+	}
+
+	return &UserAccessResponse{
+		Organization: org,
+		Companies:    companiesWithLocations,
+	}, nil
+}
+
+// Response structures for user access
+type UserAccessResponse struct {
+	Organization *models.Organization      `json:"organization"`
+	Companies    []*CompanyWithLocations   `json:"companies"`
+}
+
+type CompanyWithLocations struct {
+	Company   *models.Company     `json:"company"`
+	Locations []*models.Location  `json:"locations"`
+}
+

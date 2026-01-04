@@ -54,9 +54,10 @@ func main() {
 	orgRepo := repository.NewOrganizationRepository(mongoDB.Database)
 	companyRepo := repository.NewCompanyRepository(mongoDB.Database)
 	locationRepo := repository.NewLocationRepository(mongoDB.Database)
+	locationUserRepo := repository.NewLocationUserRepository(mongoDB.Database)
 
 	// Initialize services
-	orgService := service.NewOrganizationService(orgRepo, companyRepo, locationRepo)
+	orgService := service.NewOrganizationService(orgRepo, companyRepo, locationRepo, locationUserRepo)
 
 	// Initialize handlers
 	orgHandler := handlers.NewOrganizationHandler(orgService)
@@ -200,6 +201,35 @@ func createIndexes(db *mongo.Database) error {
 	_, err = locationsCollection.Indexes().CreateMany(ctx, locationsIndexes)
 	if err != nil {
 		return fmt.Errorf("failed to create locations indexes: %w", err)
+	}
+
+	// Location Users collection indexes
+	locationUsersCollection := db.Collection("location_users")
+	locationUsersIndexes := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				{Key: "user_id", Value: 1},
+				{Key: "location_id", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
+		{
+			Keys: bson.D{{Key: "user_id", Value: 1}},
+		},
+		{
+			Keys: bson.D{{Key: "location_id", Value: 1}},
+		},
+		{
+			Keys: bson.D{{Key: "is_active", Value: 1}},
+		},
+		{
+			Keys: bson.D{{Key: "deleted_at", Value: 1}},
+		},
+	}
+
+	_, err = locationUsersCollection.Indexes().CreateMany(ctx, locationUsersIndexes)
+	if err != nil {
+		return fmt.Errorf("failed to create location_users indexes: %w", err)
 	}
 
 	log.Println("Database indexes created successfully")
