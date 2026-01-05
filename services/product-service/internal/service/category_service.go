@@ -125,7 +125,7 @@ func (s *CategoryService) GetCategory(ctx context.Context, id primitive.ObjectID
 }
 
 // ListCategories retrieves categories with filters
-func (s *CategoryService) ListCategories(ctx context.Context, orgID primitive.ObjectID, parentID *primitive.ObjectID, level *int, isActive *bool, page, limit int) ([]*models.ProductCategory, int64, error) {
+func (s *CategoryService) ListCategories(ctx context.Context, orgID primitive.ObjectID, parentID *primitive.ObjectID, level *int, isActive *bool, page, limit int) ([]*CategoryWithSubcategories, int64, error) {
 	// Verify organization exists
 	exists, err := s.orgRepo.Exists(ctx, orgID)
 	if err != nil {
@@ -135,7 +135,26 @@ func (s *CategoryService) ListCategories(ctx context.Context, orgID primitive.Ob
 		return nil, 0, fmt.Errorf("organization not found")
 	}
 
-	return s.categoryRepo.FindByOrganization(ctx, orgID, parentID, level, isActive, page, limit)
+	categories, total, err := s.categoryRepo.FindByOrganization(ctx, orgID, parentID, level, isActive, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Fetch subcategories for each category
+	result := make([]*CategoryWithSubcategories, len(categories))
+	for i, cat := range categories {
+		subcategories, err := s.categoryRepo.FindChildren(ctx, cat.ID)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		result[i] = &CategoryWithSubcategories{
+			ProductCategory: cat,
+			Subcategories:   subcategories,
+		}
+	}
+
+	return result, total, nil
 }
 
 // GetCategoryTree retrieves the full category tree
@@ -382,4 +401,10 @@ type CategoryTreeNode struct {
 	IsActive     bool               `json:"is_active"`
 	ProductCount int                `json:"product_count"`
 	Children     []CategoryTreeNode `json:"children"`
+}
+
+// CategoryWithSubcategories represents a category with its subcategories
+type CategoryWithSubcategories struct {
+	*models.ProductCategory
+	Subcategories []*models.ProductCategory `json:"subcategories"`
 }
