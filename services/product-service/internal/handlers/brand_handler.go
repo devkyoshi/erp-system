@@ -101,6 +101,7 @@ func (h *BrandHandler) GetBrand(c *gin.Context) {
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Items per page" default(10)
 // @Param is_active query bool false "Filter by active status"
+// @Param q query string false "Search query (optional)"
 // @Success 200 {object} utils.Response
 // @Failure 400 {object} utils.Response
 // @Router /brands [get]
@@ -117,12 +118,17 @@ func (h *BrandHandler) ListBrands(c *gin.Context) {
 	filter := service.BrandFilter{
 		Page:  page,
 		Limit: limit,
+		Query: c.Query("q"), // Optional search query
 	}
 
-	// Handle is_active filter
-	if isActiveStr := c.Query("is_active"); isActiveStr != "" {
-		isActive := isActiveStr == "true"
-		filter.IsActive = &isActive
+	// Handle is_active filter - optional, only filter when provided
+	if val, exists := c.GetQuery("is_active"); exists {
+		parsed, err := strconv.ParseBool(val)
+		if err != nil {
+			utils.ErrorResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid is_active value", nil)
+			return
+		}
+		filter.IsActive = &parsed
 	}
 
 	brands, total, err := h.brandService.GetBrandsByOrganization(c.Request.Context(), orgID, filter)
@@ -250,7 +256,7 @@ func (h *BrandHandler) SearchBrands(c *gin.Context) {
 		isActive = &parsed
 	}
 
-	brands, total, err := h.brandService.SearchBrands(c.Request.Context(), orgID, query,isActive, page, limit)
+	brands, total, err := h.brandService.SearchBrands(c.Request.Context(), orgID, query, isActive, page, limit)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "SEARCH_FAILED", err.Error(), nil)
 		return

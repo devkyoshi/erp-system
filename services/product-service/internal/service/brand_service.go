@@ -95,11 +95,12 @@ func (s *BrandService) GetBrand(ctx context.Context, id primitive.ObjectID) (*mo
 
 // GetBrandsByOrganization retrieves all brands for an organization
 func (s *BrandService) GetBrandsByOrganization(ctx context.Context, orgID primitive.ObjectID, filter BrandFilter) ([]*models.Brand, int64, error) {
-	brands, total, err := s.brandRepo.FindByOrganization(ctx, orgID, filter.Page, filter.Limit, filter.IsActive)
-	if err != nil {
-		return nil, 0, err
+	// If a search query is provided, use the search method
+	if filter.Query != "" {
+		return s.brandRepo.Search(ctx, orgID, filter.Query, filter.IsActive, filter.Page, filter.Limit)
 	}
-	return brands, total, nil
+	// Otherwise, use the regular list method
+	return s.brandRepo.FindByOrganization(ctx, orgID, filter.Page, filter.Limit, filter.IsActive)
 }
 
 // UpdateBrand updates an existing brand
@@ -226,4 +227,5 @@ type BrandFilter struct {
 	Page     int
 	Limit    int
 	IsActive *bool
+	Query    string // Optional search query
 }
