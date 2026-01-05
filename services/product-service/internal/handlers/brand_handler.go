@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yourusername/erp-system/services/product-service/internal/service"
@@ -217,6 +218,7 @@ func (h *BrandHandler) DeleteBrand(c *gin.Context) {
 // @Produce json
 // @Param org_id query string true "Organization ID"
 // @Param q query string true "Search query"
+// @Param is_active query bool false "Filter by active status"
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Items per page" default(10)
 // @Success 200 {object} utils.Response
@@ -237,8 +239,18 @@ func (h *BrandHandler) SearchBrands(c *gin.Context) {
 
 	page := utils.GetPageParam(c)
 	limit := utils.GetLimitParam(c)
+	var isActive *bool
 
-	brands, total, err := h.brandService.SearchBrands(c.Request.Context(), orgID, query, page, limit)
+	if val, exists := c.GetQuery("is_active"); exists {
+		parsed, err := strconv.ParseBool(val)
+		if err != nil {
+			utils.ErrorResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid is_active value", nil)
+			return
+		}
+		isActive = &parsed
+	}
+
+	brands, total, err := h.brandService.SearchBrands(c.Request.Context(), orgID, query,isActive, page, limit)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "SEARCH_FAILED", err.Error(), nil)
 		return

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"github.com/yourusername/erp-system/services/org-service/internal/repository"
 	"github.com/yourusername/erp-system/shared/models"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type OrganizationService struct {
@@ -455,17 +455,17 @@ type UpdateOrganizationRequest struct {
 }
 
 type CreateCompanyRequest struct {
-	Name               string                `json:"name" binding:"required"`
-	LegalName          string                `json:"legal_name" binding:"required"`
-	Code               string                `json:"code" binding:"required"`
-	TaxID              string                `json:"tax_id"`
-	RegistrationNumber string                `json:"registration_number"`
-	VATNumber          string                `json:"vat_number"`
-	Email              string                `json:"email" binding:"required,email"`
-	Phone              string                `json:"phone"`
-	Address            models.Address        `json:"address" binding:"required"`
-	BankAccounts       []models.BankAccount  `json:"bank_accounts"`
-	IsDefault          bool                  `json:"is_default"`
+	Name               string               `json:"name" binding:"required"`
+	LegalName          string               `json:"legal_name" binding:"required"`
+	Code               string               `json:"code" binding:"required"`
+	TaxID              string               `json:"tax_id"`
+	RegistrationNumber string               `json:"registration_number"`
+	VATNumber          string               `json:"vat_number"`
+	Email              string               `json:"email" binding:"required,email"`
+	Phone              string               `json:"phone"`
+	Address            models.Address       `json:"address" binding:"required"`
+	BankAccounts       []models.BankAccount `json:"bank_accounts"`
+	IsDefault          bool                 `json:"is_default"`
 }
 
 type UpdateCompanyRequest struct {
@@ -559,12 +559,11 @@ func (s *OrganizationService) GetUserAccess(ctx context.Context, userID primitiv
 
 // Response structures for user access
 type UserAccessResponse struct {
-	Organization *models.Organization      `json:"organization"`
-	Companies    []*CompanyWithLocations   `json:"companies"`
+	Organization *models.Organization    `json:"organization"`
+	Companies    []*CompanyWithLocations `json:"companies"`
 }
 
 type CompanyWithLocations struct {
-	Company   *models.Company     `json:"company"`
-	Locations []*models.Location  `json:"locations"`
+	Company   *models.Company    `json:"company"`
+	Locations []*models.Location `json:"locations"`
 }
-

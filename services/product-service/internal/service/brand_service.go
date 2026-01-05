@@ -190,8 +190,8 @@ func (s *BrandService) DeleteBrand(ctx context.Context, id primitive.ObjectID, d
 }
 
 // SearchBrands searches brands by name or code
-func (s *BrandService) SearchBrands(ctx context.Context, orgID primitive.ObjectID, query string, page, limit int) ([]*models.Brand, int64, error) {
-	brands, total, err := s.brandRepo.Search(ctx, orgID, query, page, limit)
+func (s *BrandService) SearchBrands(ctx context.Context, orgID primitive.ObjectID, query string, isActive *bool, page, limit int) ([]*models.Brand, int64, error) {
+	brands, total, err := s.brandRepo.Search(ctx, orgID, query, isActive, page, limit)
 	if err != nil {
 		return nil, 0, err
 	}

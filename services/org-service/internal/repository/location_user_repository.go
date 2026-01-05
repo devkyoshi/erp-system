@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/yourusername/erp-system/shared/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"github.com/yourusername/erp-system/shared/models"
 )
 
 type LocationUserRepository struct {
