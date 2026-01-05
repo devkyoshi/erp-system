@@ -200,19 +200,22 @@ func (r *BrandRepository) IsInUse(ctx context.Context, brandID primitive.ObjectI
 
 // Search searches brands by name or code
 func (r *BrandRepository) Search(ctx context.Context, orgID primitive.ObjectID, query string, isActive *bool, page, limit int) ([]*models.Brand, int64, error) {
-	filter := bson.M{
-		"organization_id": orgID,
-		"deleted_at":      nil,
-		"$or": []bson.M{
+	// Build the base conditions
+	baseConditions := []bson.M{
+		{"organization_id": orgID},
+		{"deleted_at": nil},
+		{"$or": []bson.M{
 			{"name": bson.M{"$regex": query, "$options": "i"}},
 			{"code": bson.M{"$regex": query, "$options": "i"}},
-		},
+		}},
 	}
 
 	// Add is_active filter if provided
 	if isActive != nil {
-		filter["is_active"] = *isActive
+		baseConditions = append(baseConditions, bson.M{"is_active": *isActive})
 	}
+
+	filter := bson.M{"$and": baseConditions}
 
 	// Count total
 	total, err := r.collection.CountDocuments(ctx, filter)
