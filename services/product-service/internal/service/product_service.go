@@ -125,8 +125,8 @@ func (s *ProductService) CreateProduct(ctx context.Context, req CreateProductReq
 	return product, nil
 }
 
-// GetProduct retrieves a product by ID
-func (s *ProductService) GetProduct(ctx context.Context, id primitive.ObjectID, userOrgID primitive.ObjectID) (*models.Product, error) {
+// GetProduct retrieves a product by ID, including its category details
+func (s *ProductService) GetProduct(ctx context.Context, id primitive.ObjectID, userOrgID primitive.ObjectID) (*ProductDetailResponse, error) {
 	product, err := s.productRepo.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -140,7 +140,23 @@ func (s *ProductService) GetProduct(ctx context.Context, id primitive.ObjectID, 
 		return nil, fmt.Errorf("unauthorized: product belongs to different organization")
 	}
 
-	return product, nil
+	response := &ProductDetailResponse{
+		Product: *product,
+	}
+
+	// If category ID exists, fetch the category
+	if !product.CategoryID.IsZero() {
+		category, err := s.categoryRepo.FindByID(ctx, product.CategoryID)
+		if err != nil {
+			// Decide if you want to return the product anyway or fail
+			// For now, we'll just log the error and return the product without category
+			// In a real scenario, you might want to handle this more gracefully
+			fmt.Printf("Warning: could not fetch category %s for product %s: %v\n", product.CategoryID.Hex(), product.ID.Hex(), err)
+		}
+		response.Category = category
+	}
+
+	return response, nil
 }
 
 // ListProducts retrieves products with filters
@@ -434,6 +450,11 @@ type ProductFilter struct {
 	Search         string
 	Page           int
 	Limit          int
+}
+
+type ProductDetailResponse struct {
+	models.Product
+	Category *models.ProductCategory `json:"category,omitempty"`
 }
 
 type ProductResponse struct {
