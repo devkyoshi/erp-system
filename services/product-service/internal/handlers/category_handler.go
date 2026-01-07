@@ -41,7 +41,7 @@ func (h *CategoryHandler) RegisterCategoryRoutes(router *gin.RouterGroup, jwtMan
 
 // CreateCategory creates a new category
 // @Summary Create a new category
-// @Description Creates a new product category with optional parent (for subcategories)
+// @Description Creates a new product category with optional parent (for subcategories). Supports creating multiple subcategories in a single request.
 // @Tags Categories
 // @Accept json
 // @Produce json
@@ -70,7 +70,8 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 		return
 	}
 
-	category, err := h.categoryService.CreateCategory(c.Request.Context(), req, orgID)
+	// Use CreateCategoryWithSubcategories to support nested subcategories
+	category, err := h.categoryService.CreateCategoryWithSubcategories(c.Request.Context(), req, orgID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "CREATE_FAILED", err.Error(), nil)
 		return

@@ -363,15 +363,55 @@ func (s *CategoryService) UpdateProductCount(ctx context.Context, categoryID pri
 	return s.categoryRepo.UpdateProductCount(ctx, categoryID)
 }
 
+// CreateCategoryWithSubcategories creates a category and all its subcategories
+func (s *CategoryService) CreateCategoryWithSubcategories(ctx context.Context, req CreateCategoryRequest, userOrgID primitive.ObjectID) (*models.ProductCategory, error) {
+	// Create the parent category
+	parent, err := s.CreateCategory(ctx, CreateCategoryRequest{
+		OrganizationID: req.OrganizationID,
+		Name:           req.Name,
+		Code:           req.Code,
+		Description:    req.Description,
+		ParentID:       req.ParentID,
+		IsActive:       req.IsActive,
+		Metadata:       req.Metadata,
+	}, userOrgID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create subcategories if any
+	if len(req.Subcategories) > 0 {
+		parentIDStr := parent.ID.Hex()
+		for _, subReq := range req.Subcategories {
+			_, err := s.CreateCategoryWithSubcategories(ctx, CreateCategoryRequest{
+				OrganizationID: subReq.OrganizationID,
+				Name:           subReq.Name,
+				Code:           subReq.Code,
+				Description:    subReq.Description,
+				ParentID:       &parentIDStr, // Set parent ID for subcategories
+				IsActive:       subReq.IsActive,
+				Metadata:       subReq.Metadata,
+				Subcategories:  subReq.Subcategories, // Handle nested subcategories recursively
+			}, userOrgID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create subcategory '%s': %w", subReq.Name, err)
+			}
+		}
+	}
+
+	return parent, nil
+}
+
 // Request DTOs
 type CreateCategoryRequest struct {
-	OrganizationID string                 `json:"organization_id"` // Required only for root categories, inherited from parent for subcategories
-	Name           string                 `json:"name" binding:"required"`
-	Code           string                 `json:"code"`
-	Description    string                 `json:"description"`
-	ParentID       *string                `json:"parent_id"` // If provided, organization_id is inherited from parent
-	IsActive       bool                   `json:"is_active"`
-	Metadata       map[string]interface{} `json:"metadata"`
+	OrganizationID string                  `json:"organization_id"` // Required only for root categories, inherited from parent for subcategories
+	Name           string                  `json:"name" binding:"required"`
+	Code           string                  `json:"code"`
+	Description    string                  `json:"description"`
+	ParentID       *string                 `json:"parent_id"` // If provided, organization_id is inherited from parent
+	IsActive       bool                    `json:"is_active"`
+	Metadata       map[string]interface{}  `json:"metadata"`
+	Subcategories  []CreateCategoryRequest `json:"subcategories"` // Optional nested subcategories
 }
 
 type UpdateCategoryRequest struct {
