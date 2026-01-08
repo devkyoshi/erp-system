@@ -323,6 +323,22 @@ func (r *CategoryRepository) HasProducts(ctx context.Context, categoryID primiti
 	return count > 0, nil
 }
 
+// HasActiveProducts checks if a category has any active products
+func (r *CategoryRepository) HasActiveProducts(ctx context.Context, categoryID primitive.ObjectID) (bool, error) {
+	filter := bson.M{
+		"category_id": categoryID,
+		"is_active":   true,
+		"deleted_at":  nil,
+	}
+
+	count, err := r.productCollection.CountDocuments(ctx, filter)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
 // UpdateProductCount updates the product count for a category
 func (r *CategoryRepository) UpdateProductCount(ctx context.Context, categoryID primitive.ObjectID) error {
 	filter := bson.M{
@@ -393,4 +409,60 @@ func (r *CategoryRepository) CheckNameExists(ctx context.Context, orgID primitiv
 	}
 
 	return count > 0, nil
+}
+
+// FindByIDs retrieves multiple categories by their IDs
+func (r *CategoryRepository) FindByIDs(ctx context.Context, ids []primitive.ObjectID) ([]*models.ProductCategory, error) {
+	filter := bson.M{
+		"_id":        bson.M{"$in": ids},
+		"deleted_at": nil,
+	}
+
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var categories []*models.ProductCategory
+	if err = cursor.All(ctx, &categories); err != nil {
+		return nil, err
+	}
+
+	return categories, nil
+}
+
+// HasProductsInCategories checks if any of the given categories have products
+func (r *CategoryRepository) HasProductsInCategories(ctx context.Context, categoryIDs []primitive.ObjectID) (map[string]bool, error) {
+	result := make(map[string]bool)
+
+	for _, categoryID := range categoryIDs {
+		hasProducts, err := r.HasProducts(ctx, categoryID)
+		if err != nil {
+			return nil, err
+		}
+		result[categoryID.Hex()] = hasProducts
+	}
+
+	return result, nil
+}
+
+// DeleteMultiple soft deletes multiple categories
+func (r *CategoryRepository) DeleteMultiple(ctx context.Context, ids []primitive.ObjectID) error {
+	now := time.Now()
+
+	filter := bson.M{
+		"_id":        bson.M{"$in": ids},
+		"deleted_at": nil,
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"deleted_at": now,
+			"updated_at": now,
+		},
+	}
+
+	_, err := r.collection.UpdateMany(ctx, filter, update)
+	return err
 }

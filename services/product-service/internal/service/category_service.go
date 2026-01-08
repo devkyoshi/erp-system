@@ -135,6 +135,13 @@ func (s *CategoryService) ListCategories(ctx context.Context, orgID primitive.Ob
 		return nil, 0, fmt.Errorf("organization not found")
 	}
 
+	// If no parent_id or level filter is specified, default to root categories only (level 0)
+	// This prevents subcategories from appearing both in the main list and nested within their parents
+	if parentID == nil && level == nil {
+		rootLevel := 0
+		level = &rootLevel
+	}
+
 	categories, total, err := s.categoryRepo.FindByOrganization(ctx, orgID, parentID, level, isActive, page, limit)
 	if err != nil {
 		return nil, 0, err
@@ -233,7 +240,28 @@ func (s *CategoryService) UpdateCategory(ctx context.Context, id primitive.Objec
 		return nil, fmt.Errorf("unauthorized: category belongs to different organization")
 	}
 
-	// Apply updates
+	// Handle subcategory removal first (before any updates)
+	if len(req.RemoveSubcategories) > 0 {
+		if err := s.handleRemoveSubcategories(ctx, id, req.RemoveSubcategories, userOrgID); err != nil {
+			return nil, fmt.Errorf("failed to remove subcategories: %w", err)
+		}
+	}
+
+	// Handle subcategory updates
+	if len(req.UpdateSubcategories) > 0 {
+		if err := s.handleUpdateSubcategories(ctx, id, req.UpdateSubcategories, userOrgID); err != nil {
+			return nil, fmt.Errorf("failed to update subcategories: %w", err)
+		}
+	}
+
+	// Handle adding new subcategories
+	if len(req.AddSubcategories) > 0 {
+		if err := s.handleAddSubcategories(ctx, id, req.AddSubcategories, userOrgID); err != nil {
+			return nil, fmt.Errorf("failed to add subcategories: %w", err)
+		}
+	}
+
+	// Apply updates to main category
 	if req.Name != nil {
 		existing.Name = *req.Name
 	}
@@ -301,6 +329,182 @@ func (s *CategoryService) UpdateCategory(ctx context.Context, id primitive.Objec
 	}
 
 	return existing, nil
+}
+
+// handleRemoveSubcategories removes subcategories with validation
+func (s *CategoryService) handleRemoveSubcategories(ctx context.Context, parentID primitive.ObjectID, subcategoryIDStrs []string, userOrgID primitive.ObjectID) error {
+	if len(subcategoryIDStrs) == 0 {
+		return nil
+	}
+
+	// Parse subcategory IDs
+	subcategoryIDs := make([]primitive.ObjectID, 0, len(subcategoryIDStrs))
+	for _, idStr := range subcategoryIDStrs {
+		id, err := primitive.ObjectIDFromHex(idStr)
+		if err != nil {
+			return fmt.Errorf("invalid subcategory ID '%s': %w", idStr, err)
+		}
+		subcategoryIDs = append(subcategoryIDs, id)
+	}
+
+	// Fetch subcategories to validate
+	subcategories, err := s.categoryRepo.FindByIDs(ctx, subcategoryIDs)
+	if err != nil {
+		return err
+	}
+
+	// Validate all subcategories exist and belong to the parent and organization
+	if len(subcategories) != len(subcategoryIDs) {
+		return fmt.Errorf("one or more subcategories not found")
+	}
+
+	for _, subcat := range subcategories {
+		// Verify it's a direct child of the parent category
+		if subcat.ParentID == nil || *subcat.ParentID != parentID {
+			return fmt.Errorf("category '%s' is not a direct subcategory of the parent", subcat.Name)
+		}
+
+		// Verify organization
+		if subcat.OrganizationID != userOrgID {
+			return fmt.Errorf("unauthorized: subcategory '%s' belongs to different organization", subcat.Name)
+		}
+
+		// Check if subcategory has any children
+		hasChildren, err := s.categoryRepo.HasChildren(ctx, subcat.ID)
+		if err != nil {
+			return err
+		}
+		if hasChildren {
+			return fmt.Errorf("cannot remove subcategory '%s' because it has child categories", subcat.Name)
+		}
+	}
+
+	// Check which subcategories have products
+	productsMap, err := s.categoryRepo.HasProductsInCategories(ctx, subcategoryIDs)
+	if err != nil {
+		return err
+	}
+
+	// Validate that no subcategory has products
+	categoriesWithProducts := []string{}
+	for _, subcat := range subcategories {
+		if hasProducts, exists := productsMap[subcat.ID.Hex()]; exists && hasProducts {
+			categoriesWithProducts = append(categoriesWithProducts, subcat.Name)
+		}
+	}
+
+	if len(categoriesWithProducts) > 0 {
+		return fmt.Errorf("cannot remove subcategories with products: %v", categoriesWithProducts)
+	}
+
+	// All validations passed, delete the subcategories
+	return s.categoryRepo.DeleteMultiple(ctx, subcategoryIDs)
+}
+
+// handleUpdateSubcategories updates existing subcategories
+func (s *CategoryService) handleUpdateSubcategories(ctx context.Context, parentID primitive.ObjectID, updates []UpdateSubcategoryRequest, userOrgID primitive.ObjectID) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	for _, updateReq := range updates {
+		subcatID, err := primitive.ObjectIDFromHex(updateReq.ID)
+		if err != nil {
+			return fmt.Errorf("invalid subcategory ID '%s': %w", updateReq.ID, err)
+		}
+
+		// Fetch subcategory
+		subcat, err := s.categoryRepo.FindByID(ctx, subcatID)
+		if err != nil {
+			return err
+		}
+		if subcat == nil {
+			return fmt.Errorf("subcategory with ID '%s' not found", updateReq.ID)
+		}
+
+		// Verify it's a direct child of the parent category
+		if subcat.ParentID == nil || *subcat.ParentID != parentID {
+			return fmt.Errorf("category '%s' is not a direct subcategory of the parent", subcat.Name)
+		}
+
+		// Verify organization
+		if subcat.OrganizationID != userOrgID {
+			return fmt.Errorf("unauthorized: subcategory '%s' belongs to different organization", subcat.Name)
+		}
+
+		// Apply updates
+		if updateReq.Name != nil {
+			subcat.Name = *updateReq.Name
+		}
+		if updateReq.Code != nil {
+			subcat.Code = *updateReq.Code
+		}
+		if updateReq.Description != nil {
+			subcat.Description = *updateReq.Description
+		}
+		if updateReq.IsActive != nil {
+			subcat.IsActive = *updateReq.IsActive
+		}
+		if updateReq.Metadata != nil {
+			subcat.Metadata = updateReq.Metadata
+		}
+
+		// Check if name already exists at the same level (excluding current subcategory)
+		if updateReq.Name != nil {
+			exists, err := s.categoryRepo.CheckNameExists(ctx, subcat.OrganizationID, subcat.Name, subcat.ParentID, &subcatID)
+			if err != nil {
+				return err
+			}
+			if exists {
+				return fmt.Errorf("subcategory name '%s' already exists at this level", subcat.Name)
+			}
+		}
+
+		// Update the subcategory
+		if err := s.categoryRepo.Update(ctx, subcat); err != nil {
+			return fmt.Errorf("failed to update subcategory '%s': %w", subcat.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// handleAddSubcategories adds new subcategories to a category
+func (s *CategoryService) handleAddSubcategories(ctx context.Context, parentID primitive.ObjectID, subcategories []CreateCategoryRequest, userOrgID primitive.ObjectID) error {
+	if len(subcategories) == 0 {
+		return nil
+	}
+
+	// Get parent category to inherit organization
+	parent, err := s.categoryRepo.FindByID(ctx, parentID)
+	if err != nil {
+		return err
+	}
+	if parent == nil {
+		return fmt.Errorf("parent category not found")
+	}
+
+	parentIDStr := parentID.Hex()
+
+	// Create each subcategory
+	for _, subReq := range subcategories {
+		// Create the subcategory with parent ID
+		_, err := s.CreateCategory(ctx, CreateCategoryRequest{
+			OrganizationID: parent.OrganizationID.Hex(),
+			Name:           subReq.Name,
+			Code:           subReq.Code,
+			Description:    subReq.Description,
+			ParentID:       &parentIDStr,
+			IsActive:       subReq.IsActive,
+			Metadata:       subReq.Metadata,
+			Subcategories:  subReq.Subcategories, // Handle nested subcategories recursively
+		}, userOrgID)
+		if err != nil {
+			return fmt.Errorf("failed to create subcategory '%s': %w", subReq.Name, err)
+		}
+	}
+
+	return nil
 }
 
 // isDescendant checks if potentialDescendant is a descendant of categoryID
@@ -419,6 +623,19 @@ type UpdateCategoryRequest struct {
 	Code        *string                `json:"code"`
 	Description *string                `json:"description"`
 	ParentID    *string                `json:"parent_id"`
+	IsActive    *bool                  `json:"is_active"`
+	Metadata    map[string]interface{} `json:"metadata"`
+	// Subcategory management
+	AddSubcategories    []CreateCategoryRequest    `json:"add_subcategories"`    // New subcategories to create
+	UpdateSubcategories []UpdateSubcategoryRequest `json:"update_subcategories"` // Existing subcategories to update
+	RemoveSubcategories []string                   `json:"remove_subcategories"` // Subcategory IDs to remove
+}
+
+type UpdateSubcategoryRequest struct {
+	ID          string                 `json:"id" binding:"required"` // Subcategory ID to update
+	Name        *string                `json:"name"`
+	Code        *string                `json:"code"`
+	Description *string                `json:"description"`
 	IsActive    *bool                  `json:"is_active"`
 	Metadata    map[string]interface{} `json:"metadata"`
 }
