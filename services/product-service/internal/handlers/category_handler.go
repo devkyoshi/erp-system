@@ -128,6 +128,7 @@ func (h *CategoryHandler) GetCategory(c *gin.Context) {
 // @Param parent_id query string false "Parent category ID"
 // @Param level query int false "Category level"
 // @Param is_active query bool false "Active status"
+// @Param q query string false "Search query for category name"
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Items per page" default(10)
 // @Success 200 {object} utils.Response
@@ -177,6 +178,8 @@ func (h *CategoryHandler) ListCategories(c *gin.Context) {
 		isActive = &active
 	}
 
+	query := c.Query("q")
+
 	// Pagination
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
@@ -188,7 +191,7 @@ func (h *CategoryHandler) ListCategories(c *gin.Context) {
 		limit = 10
 	}
 
-	categories, total, err := h.categoryService.ListCategories(c.Request.Context(), orgID, parentID, level, isActive, page, limit)
+	categories, total, err := h.categoryService.ListCategories(c.Request.Context(), orgID, parentID, level, isActive, query, page, limit)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "LIST_FAILED", err.Error(), nil)
 		return

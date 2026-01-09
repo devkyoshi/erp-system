@@ -72,7 +72,7 @@ func (r *CategoryRepository) FindByID(ctx context.Context, id primitive.ObjectID
 }
 
 // FindByOrganization retrieves categories for an organization with optional filters
-func (r *CategoryRepository) FindByOrganization(ctx context.Context, orgID primitive.ObjectID, parentID *primitive.ObjectID, level *int, isActive *bool, page, limit int) ([]*models.ProductCategory, int64, error) {
+func (r *CategoryRepository) FindByOrganization(ctx context.Context, orgID primitive.ObjectID, parentID *primitive.ObjectID, level *int, isActive *bool, query string, page, limit int) ([]*models.ProductCategory, int64, error) {
 	filter := bson.M{
 		"organization_id": orgID,
 		"deleted_at":      nil,
@@ -88,6 +88,15 @@ func (r *CategoryRepository) FindByOrganization(ctx context.Context, orgID primi
 
 	if isActive != nil {
 		filter["is_active"] = *isActive
+	}
+
+	// Add search query filter
+	if query != "" {
+		filter["$or"] = []bson.M{
+			{"name": bson.M{"$regex": query, "$options": "i"}},
+			{"code": bson.M{"$regex": query, "$options": "i"}},
+			{"description": bson.M{"$regex": query, "$options": "i"}},
+		}
 	}
 
 	// Count total

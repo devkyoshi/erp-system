@@ -125,7 +125,7 @@ func (s *CategoryService) GetCategory(ctx context.Context, id primitive.ObjectID
 }
 
 // ListCategories retrieves categories with filters
-func (s *CategoryService) ListCategories(ctx context.Context, orgID primitive.ObjectID, parentID *primitive.ObjectID, level *int, isActive *bool, page, limit int) ([]*CategoryWithSubcategories, int64, error) {
+func (s *CategoryService) ListCategories(ctx context.Context, orgID primitive.ObjectID, parentID *primitive.ObjectID, level *int, isActive *bool, query string, page, limit int) ([]*CategoryWithSubcategories, int64, error) {
 	// Verify organization exists
 	exists, err := s.orgRepo.Exists(ctx, orgID)
 	if err != nil {
@@ -135,14 +135,15 @@ func (s *CategoryService) ListCategories(ctx context.Context, orgID primitive.Ob
 		return nil, 0, fmt.Errorf("organization not found")
 	}
 
-	// If no parent_id or level filter is specified, default to root categories only (level 0)
+	// If no parent_id or level filter is specified, and no search query, default to root categories only (level 0)
 	// This prevents subcategories from appearing both in the main list and nested within their parents
-	if parentID == nil && level == nil {
+	// However, if a search query is provided, search across all levels
+	if parentID == nil && level == nil && query == "" {
 		rootLevel := 0
 		level = &rootLevel
 	}
 
-	categories, total, err := s.categoryRepo.FindByOrganization(ctx, orgID, parentID, level, isActive, page, limit)
+	categories, total, err := s.categoryRepo.FindByOrganization(ctx, orgID, parentID, level, isActive, query, page, limit)
 	if err != nil {
 		return nil, 0, err
 	}
