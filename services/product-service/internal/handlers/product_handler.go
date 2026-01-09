@@ -214,6 +214,15 @@ func (h *ProductHandler) ListProducts(c *gin.Context) {
 		filters["category_id"] = categoryID
 	}
 
+	if subcategoryIDParam := c.Query("subcategory_id"); subcategoryIDParam != "" {
+		subcategoryID, err := primitive.ObjectIDFromHex(subcategoryIDParam)
+		if err != nil {
+			utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid subcategory_id", nil)
+			return
+		}
+		filters["subcategory_id"] = subcategoryID
+	}
+
 	if brandIDParam := c.Query("brand_id"); brandIDParam != "" {
 		brandID, err := primitive.ObjectIDFromHex(brandIDParam)
 		if err != nil {

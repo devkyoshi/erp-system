@@ -81,6 +81,9 @@ func (r *ProductRepository) FindByOrganization(ctx context.Context, orgID primit
 	if categoryID, ok := filters["category_id"].(primitive.ObjectID); ok {
 		filter["category_id"] = categoryID
 	}
+	if subcategoryID, ok := filters["subcategory_id"].(primitive.ObjectID); ok {
+		filter["subcategory_id"] = subcategoryID
+	}
 	if brandID, ok := filters["brand_id"].(primitive.ObjectID); ok {
 		filter["brand_id"] = brandID
 	}
@@ -238,6 +241,16 @@ func (r *ProductRepository) CountByCategory(ctx context.Context, categoryID prim
 	filter := bson.M{
 		"category_id": categoryID,
 		"deleted_at":  nil,
+	}
+
+	return r.collection.CountDocuments(ctx, filter)
+}
+
+// CountBySubcategory counts products in a subcategory
+func (r *ProductRepository) CountBySubcategory(ctx context.Context, subcategoryID primitive.ObjectID) (int64, error) {
+	filter := bson.M{
+		"subcategory_id": subcategoryID,
+		"deleted_at":     nil,
 	}
 
 	return r.collection.CountDocuments(ctx, filter)

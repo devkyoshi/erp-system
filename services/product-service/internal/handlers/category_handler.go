@@ -70,8 +70,7 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 		return
 	}
 
-	// Use CreateCategoryWithSubcategories to support nested subcategories
-	category, err := h.categoryService.CreateCategoryWithSubcategories(c.Request.Context(), req, orgID)
+	category, err := h.categoryService.CreateCategory(c.Request.Context(), req, orgID)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "CREATE_FAILED", err.Error(), nil)
 		return
@@ -148,26 +147,6 @@ func (h *CategoryHandler) ListCategories(c *gin.Context) {
 	}
 
 	// Parse optional filters
-	var parentID *primitive.ObjectID
-	if parentIDParam := c.Query("parent_id"); parentIDParam != "" {
-		id, err := primitive.ObjectIDFromHex(parentIDParam)
-		if err != nil {
-			utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid parent_id", nil)
-			return
-		}
-		parentID = &id
-	}
-
-	var level *int
-	if levelParam := c.Query("level"); levelParam != "" {
-		l, err := strconv.Atoi(levelParam)
-		if err != nil {
-			utils.ErrorResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", "Invalid level", nil)
-			return
-		}
-		level = &l
-	}
-
 	var isActive *bool
 	if isActiveParam := c.Query("is_active"); isActiveParam != "" {
 		active, err := strconv.ParseBool(isActiveParam)
@@ -191,7 +170,7 @@ func (h *CategoryHandler) ListCategories(c *gin.Context) {
 		limit = 10
 	}
 
-	categories, total, err := h.categoryService.ListCategories(c.Request.Context(), orgID, parentID, level, isActive, query, page, limit)
+	categories, total, err := h.categoryService.ListCategories(c.Request.Context(), orgID, isActive, query, page, limit)
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "LIST_FAILED", err.Error(), nil)
 		return

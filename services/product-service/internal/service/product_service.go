@@ -79,6 +79,22 @@ func (s *ProductService) CreateProduct(ctx context.Context, req CreateProductReq
 		if category.OrganizationID != product.OrganizationID {
 			return nil, fmt.Errorf("category must belong to the same organization")
 		}
+
+		// Validate subcategory if provided
+		if !product.SubcategoryID.IsZero() {
+			subcategoryFound := false
+			for _, sub := range category.Subcategories {
+				if sub.ID == product.SubcategoryID && sub.DeletedAt == nil {
+					subcategoryFound = true
+					break
+				}
+			}
+			if !subcategoryFound {
+				return nil, fmt.Errorf("subcategory not found in the specified category")
+			}
+		}
+	} else if !product.SubcategoryID.IsZero() {
+		return nil, fmt.Errorf("subcategory_id requires category_id to be specified")
 	}
 
 	// Validate brand if provided
@@ -225,6 +241,43 @@ func (s *ProductService) UpdateProduct(ctx context.Context, id primitive.ObjectI
 		}
 	}
 
+	// Validate subcategory if provided
+	if req.SubcategoryID != nil {
+		subID, err := primitive.ObjectIDFromHex(*req.SubcategoryID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid subcategory ID: %w", err)
+		}
+
+		// Determine the final category ID (either updated or existing)
+		finalCategoryID := existing.CategoryID
+		if req.CategoryID != nil {
+			finalCategoryID, _ = primitive.ObjectIDFromHex(*req.CategoryID)
+		}
+
+		if finalCategoryID.IsZero() {
+			return nil, fmt.Errorf("subcategory_id requires category_id to be specified")
+		}
+
+		category, err := s.categoryRepo.FindByID(ctx, finalCategoryID)
+		if err != nil {
+			return nil, err
+		}
+		if category == nil {
+			return nil, fmt.Errorf("category not found")
+		}
+
+		subcategoryFound := false
+		for _, sub := range category.Subcategories {
+			if sub.ID == subID && sub.DeletedAt == nil {
+				subcategoryFound = true
+				break
+			}
+		}
+		if !subcategoryFound {
+			return nil, fmt.Errorf("subcategory not found in the specified category")
+		}
+	}
+
 	// Validate brand if provided and changed
 	if req.BrandID != nil {
 		brandID, err := primitive.ObjectIDFromHex(*req.BrandID)
@@ -309,6 +362,7 @@ type CreateProductRequest struct {
 	Type           string  `json:"type"`
 	Status         string  `json:"status"`
 	CategoryID     *string `json:"category_id"`
+	SubcategoryID  *string `json:"subcategory_id"` // NEW: Subcategory reference
 	BrandID        *string `json:"brand_id"`
 	ManufacturerID *string `json:"manufacturer_id"`
 
@@ -379,6 +433,7 @@ type UpdateProductRequest struct {
 	Type           *string `json:"type"`
 	Status         *string `json:"status"`
 	CategoryID     *string `json:"category_id"`
+	SubcategoryID  *string `json:"subcategory_id"` // NEW: Subcategory reference
 	BrandID        *string `json:"brand_id"`
 	ManufacturerID *string `json:"manufacturer_id"`
 
@@ -543,6 +598,14 @@ func (s *ProductService) createProductRequestToModel(req CreateProductRequest, o
 		product.CategoryID = id
 	}
 
+	if req.SubcategoryID != nil {
+		id, err := primitive.ObjectIDFromHex(*req.SubcategoryID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid subcategory ID: %w", err)
+		}
+		product.SubcategoryID = id
+	}
+
 	if req.BrandID != nil {
 		id, err := primitive.ObjectIDFromHex(*req.BrandID)
 		if err != nil {
@@ -637,6 +700,13 @@ func (s *ProductService) applyProductUpdates(ctx context.Context, product *model
 			return fmt.Errorf("invalid category ID: %w", err)
 		}
 		product.CategoryID = id
+	}
+	if req.SubcategoryID != nil {
+		id, err := primitive.ObjectIDFromHex(*req.SubcategoryID)
+		if err != nil {
+			return fmt.Errorf("invalid subcategory ID: %w", err)
+		}
+		product.SubcategoryID = id
 	}
 	if req.BrandID != nil {
 		id, err := primitive.ObjectIDFromHex(*req.BrandID)

@@ -50,39 +50,39 @@ const (
 
 // ReorderPolicy defines reorder rules
 type ReorderPolicy struct {
-	Enabled         bool   `bson:"enabled" json:"enabled"`
+	Enabled bool `bson:"enabled" json:"enabled"`
 
-	ReOrderLevel    int    `bson:"re_order_level" json:"re_order_level"`
-	ReOrderQuantity int    `bson:"re_order_quantity" json:"re_order_quantity"`
-	MinStockLevel   int    `bson:"min_stock_level" json:"min_stock_level"`
-	MaxStockLevel   int    `bson:"max_stock_level" json:"max_stock_level"`
-	SafetyStock    	int    `bson:"safety_stock" json:"safety_stock"`
-	LeadTimeDays    int    `bson:"lead_time_days" json:"lead_time_days"`
-	
+	ReOrderLevel    int `bson:"re_order_level" json:"re_order_level"`
+	ReOrderQuantity int `bson:"re_order_quantity" json:"re_order_quantity"`
+	MinStockLevel   int `bson:"min_stock_level" json:"min_stock_level"`
+	MaxStockLevel   int `bson:"max_stock_level" json:"max_stock_level"`
+	SafetyStock     int `bson:"safety_stock" json:"safety_stock"`
+	LeadTimeDays    int `bson:"lead_time_days" json:"lead_time_days"`
+
 	// Audit Fields
-	CreatedAt       int64  `bson:"created_at" json:"created_at"`
-	ModifiedAt      int64  `bson:"modified_at" json:"modified_at"`
+	CreatedAt  int64 `bson:"created_at" json:"created_at"`
+	ModifiedAt int64 `bson:"modified_at" json:"modified_at"`
 
 	// Deletion Fields
-	IsDeleted 		bool   `bson:"is_deleted" json:"is_deleted"`
-	DeletedDate 	int64  `bson:"deleted_date" json:"deleted_date"`
+	IsDeleted   bool  `bson:"is_deleted" json:"is_deleted"`
+	DeletedDate int64 `bson:"deleted_date" json:"deleted_date"`
 }
 
 // Brand represents a product brand
 type Brand struct {
 	BaseModel `bson:",inline"`
 
-	OrganizationID 	primitive.ObjectID `bson:"organization_id" json:"organization_id" binding:"required"`
+	OrganizationID primitive.ObjectID `bson:"organization_id" json:"organization_id" binding:"required"`
 
-	Name        	string `bson:"name" json:"name" binding:"required"`
-	Code 	  		string `bson:"code" json:"code"`
-	Description 	string `bson:"description" json:"description"`
-	
-	LogoURL     	string `bson:"logo_url" json:"logo_url"`
-	Website     	string `bson:"website" json:"website"`
-	Country	    	string `bson:"country" json:"country"`
+	Name        string `bson:"name" json:"name" binding:"required"`
+	Code        string `bson:"code" json:"code"`
+	Description string `bson:"description" json:"description"`
 
-	IsActive    	bool   `bson:"is_active" json:"is_active"`
+	LogoURL string `bson:"logo_url" json:"logo_url"`
+	Website string `bson:"website" json:"website"`
+	Country string `bson:"country" json:"country"`
+
+	IsActive bool `bson:"is_active" json:"is_active"`
 
 	Metadata map[string]interface{} `bson:"metadata" json:"metadata"`
 }
@@ -95,16 +95,17 @@ type Product struct {
 	OrganizationID primitive.ObjectID `bson:"organization_id" json:"organization_id" binding:"required"`
 
 	//Identifications
-	SKU            string             `bson:"sku" json:"sku" binding:"required"` // Stock Keeping Unit
-	Barcode        string             `bson:"barcode" json:"barcode"`
-	Name           string             `bson:"name" json:"name" binding:"required"`
-	Description    string             `bson:"description" json:"description"`
+	SKU         string `bson:"sku" json:"sku" binding:"required"` // Stock Keeping Unit
+	Barcode     string `bson:"barcode" json:"barcode"`
+	Name        string `bson:"name" json:"name" binding:"required"`
+	Description string `bson:"description" json:"description"`
 
-	Type           ProductType        `bson:"type" json:"type"`
-	Status         ProductStatus      `bson:"status" json:"status"`
+	Type   ProductType   `bson:"type" json:"type"`
+	Status ProductStatus `bson:"status" json:"status"`
 
 	// Classification
 	CategoryID     primitive.ObjectID `bson:"category_id" json:"category_id"`
+	SubcategoryID  primitive.ObjectID `bson:"subcategory_id" json:"subcategory_id"`
 	BrandID        primitive.ObjectID `bson:"brand_id" json:"brand_id"`
 	ManufacturerID primitive.ObjectID `bson:"manufacturer_id" json:"manufacturer_id"`
 
@@ -115,7 +116,7 @@ type Product struct {
 	ValuationMethod    StockValuationMethod `bson:"valuation_method" json:"valuation_method"`
 
 	// Unit of Measure
-	BaseUnitID primitive.ObjectID   `bson:"base_unit_id" json:"base_unit_id"`
+	BaseUnitID     primitive.ObjectID   `bson:"base_unit_id" json:"base_unit_id"`
 	AllowedUnitIDs []primitive.ObjectID `bson:"allowed_unit_ids" json:"allowed_unit_ids"`
 
 	// Dimensions & Weight
@@ -332,7 +333,19 @@ type SerialNumber struct {
 	Metadata map[string]interface{} `bson:"metadata" json:"metadata"`
 }
 
-// ProductCategory represents product categories
+// ProductSubcategory represents a child classification within a category.
+type ProductSubcategory struct {
+	BaseModel `bson:",inline"`
+
+	Name         string                 `bson:"name" json:"name" binding:"required"`
+	Code         string                 `bson:"code" json:"code"`
+	Description  string                 `bson:"description" json:"description"`
+	IsActive     bool                   `bson:"is_active" json:"is_active"`
+	ProductCount int                    `bson:"product_count" json:"product_count"`
+	Metadata     map[string]interface{} `bson:"metadata" json:"metadata"`
+}
+
+// ProductCategory represents product categories with embedded subcategories (two-level hierarchy).
 type ProductCategory struct {
 	BaseModel `bson:",inline"`
 
@@ -342,10 +355,8 @@ type ProductCategory struct {
 	Code        string `bson:"code" json:"code"`
 	Description string `bson:"description" json:"description"`
 
-	// Hierarchy
-	ParentID *primitive.ObjectID `bson:"parent_id" json:"parent_id"`
-	Level    int                 `bson:"level" json:"level"` // 0=root
-	Path     string              `bson:"path" json:"path"`   // /electronics/laptops/gaming
+	// Embedded subcategories (max depth = 1)
+	Subcategories []ProductSubcategory `bson:"subcategories" json:"subcategories"`
 
 	// Inventory Defaults (Applied if product doesn’t override)
 	DefaultReorderPolicy *ReorderPolicy `bson:"default_reorder_policy" json:"default_reorder_policy"`

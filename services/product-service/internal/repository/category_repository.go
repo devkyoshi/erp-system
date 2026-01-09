@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/yourusername/erp-system/shared/models"
@@ -32,20 +31,18 @@ func (r *CategoryRepository) Create(ctx context.Context, category *models.Produc
 	category.UpdatedAt = time.Now()
 	category.ProductCount = 0
 
-	// Build path
-	if category.ParentID != nil {
-		parent, err := r.FindByID(ctx, *category.ParentID)
-		if err != nil {
-			return err
+	// Initialize subcategories with IDs and timestamps
+	if len(category.Subcategories) > 0 {
+		initialized := make([]models.ProductSubcategory, 0, len(category.Subcategories))
+		for _, sub := range category.Subcategories {
+			sub.ID = primitive.NewObjectID()
+			sub.CreatedAt = time.Now()
+			sub.UpdatedAt = time.Now()
+			sub.DeletedAt = nil
+			sub.ProductCount = 0
+			initialized = append(initialized, sub)
 		}
-		if parent == nil {
-			return fmt.Errorf("parent category not found")
-		}
-		category.Level = parent.Level + 1
-		category.Path = parent.Path + "/" + strings.ToLower(category.Name)
-	} else {
-		category.Level = 0
-		category.Path = "/" + strings.ToLower(category.Name)
+		category.Subcategories = initialized
 	}
 
 	_, err := r.collection.InsertOne(ctx, category)
@@ -72,18 +69,10 @@ func (r *CategoryRepository) FindByID(ctx context.Context, id primitive.ObjectID
 }
 
 // FindByOrganization retrieves categories for an organization with optional filters
-func (r *CategoryRepository) FindByOrganization(ctx context.Context, orgID primitive.ObjectID, parentID *primitive.ObjectID, level *int, isActive *bool, query string, page, limit int) ([]*models.ProductCategory, int64, error) {
+func (r *CategoryRepository) FindByOrganization(ctx context.Context, orgID primitive.ObjectID, isActive *bool, query string, page, limit int) ([]*models.ProductCategory, int64, error) {
 	filter := bson.M{
 		"organization_id": orgID,
 		"deleted_at":      nil,
-	}
-
-	if parentID != nil {
-		filter["parent_id"] = *parentID
-	}
-
-	if level != nil {
-		filter["level"] = *level
 	}
 
 	if isActive != nil {
@@ -127,53 +116,7 @@ func (r *CategoryRepository) FindByOrganization(ctx context.Context, orgID primi
 }
 
 // FindRootCategories retrieves all root-level categories (level 0)
-func (r *CategoryRepository) FindRootCategories(ctx context.Context, orgID primitive.ObjectID) ([]*models.ProductCategory, error) {
-	filter := bson.M{
-		"organization_id": orgID,
-		"level":           0,
-		"deleted_at":      nil,
-	}
-
-	opts := options.Find().SetSort(bson.D{{Key: "name", Value: 1}})
-
-	cursor, err := r.collection.Find(ctx, filter, opts)
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(ctx)
-
-	var categories []*models.ProductCategory
-	if err = cursor.All(ctx, &categories); err != nil {
-		return nil, err
-	}
-
-	return categories, nil
-}
-
-// FindChildren retrieves direct children of a category
-func (r *CategoryRepository) FindChildren(ctx context.Context, parentID primitive.ObjectID) ([]*models.ProductCategory, error) {
-	filter := bson.M{
-		"parent_id":  parentID,
-		"deleted_at": nil,
-	}
-
-	opts := options.Find().SetSort(bson.D{{Key: "name", Value: 1}})
-
-	cursor, err := r.collection.Find(ctx, filter, opts)
-	if err != nil {
-		return nil, err
-	}
-	defer cursor.Close(ctx)
-
-	var categories []*models.ProductCategory
-	if err = cursor.All(ctx, &categories); err != nil {
-		return nil, err
-	}
-
-	return categories, nil
-}
-
-// FindByPath retrieves a category by its path
+// FindByPath retrieves a category by its path (kept for compatibility if needed)
 func (r *CategoryRepository) FindByPath(ctx context.Context, orgID primitive.ObjectID, path string) (*models.ProductCategory, error) {
 	var category models.ProductCategory
 	filter := bson.M{
@@ -197,35 +140,10 @@ func (r *CategoryRepository) FindByPath(ctx context.Context, orgID primitive.Obj
 func (r *CategoryRepository) Update(ctx context.Context, category *models.ProductCategory) error {
 	category.UpdatedAt = time.Now()
 
-	// If name changed, update path for this category and all descendants
-	oldCategory, err := r.FindByID(ctx, category.ID)
-	if err != nil {
-		return err
-	}
-	if oldCategory == nil {
-		return fmt.Errorf("category not found")
-	}
-
-	// Rebuild path if name or parent changed
-	if oldCategory.Name != category.Name || (oldCategory.ParentID != category.ParentID) {
-		if category.ParentID != nil {
-			parent, err := r.FindByID(ctx, *category.ParentID)
-			if err != nil {
-				return err
-			}
-			if parent == nil {
-				return fmt.Errorf("parent category not found")
-			}
-			category.Level = parent.Level + 1
-			category.Path = parent.Path + "/" + strings.ToLower(category.Name)
-		} else {
-			category.Level = 0
-			category.Path = "/" + strings.ToLower(category.Name)
-		}
-
-		// Update paths of all descendants
-		if err := r.updateDescendantPaths(ctx, category.ID, oldCategory.Path, category.Path); err != nil {
-			return err
+	// Ensure subcategories have updated timestamps when modified
+	if len(category.Subcategories) > 0 {
+		for i := range category.Subcategories {
+			category.Subcategories[i].UpdatedAt = time.Now()
 		}
 	}
 
@@ -238,48 +156,8 @@ func (r *CategoryRepository) Update(ctx context.Context, category *models.Produc
 		"$set": category,
 	}
 
-	_, err = r.collection.UpdateOne(ctx, filter, update)
+	_, err := r.collection.UpdateOne(ctx, filter, update)
 	return err
-}
-
-// updateDescendantPaths updates paths of all descendant categories
-func (r *CategoryRepository) updateDescendantPaths(ctx context.Context, categoryID primitive.ObjectID, oldPath, newPath string) error {
-	// Find all descendants
-	filter := bson.M{
-		"path":       bson.M{"$regex": "^" + oldPath + "/"},
-		"deleted_at": nil,
-	}
-
-	cursor, err := r.collection.Find(ctx, filter)
-	if err != nil {
-		return err
-	}
-	defer cursor.Close(ctx)
-
-	var descendants []*models.ProductCategory
-	if err = cursor.All(ctx, &descendants); err != nil {
-		return err
-	}
-
-	// Update each descendant's path
-	for _, desc := range descendants {
-		newDescPath := strings.Replace(desc.Path, oldPath, newPath, 1)
-		_, err := r.collection.UpdateOne(
-			ctx,
-			bson.M{"_id": desc.ID},
-			bson.M{
-				"$set": bson.M{
-					"path":       newDescPath,
-					"updated_at": time.Now(),
-				},
-			},
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // Delete soft deletes a category
@@ -302,19 +180,24 @@ func (r *CategoryRepository) Delete(ctx context.Context, id primitive.ObjectID) 
 	return err
 }
 
-// HasChildren checks if a category has any children
+// HasChildren checks if a category has any subcategories (embedded)
 func (r *CategoryRepository) HasChildren(ctx context.Context, id primitive.ObjectID) (bool, error) {
-	filter := bson.M{
-		"parent_id":  id,
-		"deleted_at": nil,
-	}
-
-	count, err := r.collection.CountDocuments(ctx, filter)
+	category, err := r.FindByID(ctx, id)
 	if err != nil {
 		return false, err
 	}
+	if category == nil {
+		return false, nil
+	}
 
-	return count > 0, nil
+	// Check if subcategories array is non-empty
+	for _, sub := range category.Subcategories {
+		if sub.DeletedAt == nil {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // HasProducts checks if a category has any products
@@ -371,14 +254,14 @@ func (r *CategoryRepository) UpdateProductCount(ctx context.Context, categoryID 
 	return err
 }
 
-// GetCategoryTree retrieves the full category tree for an organization
+// GetCategoryTree retrieves all categories for an organization (subcategories are embedded)
 func (r *CategoryRepository) GetCategoryTree(ctx context.Context, orgID primitive.ObjectID) ([]*models.ProductCategory, error) {
 	filter := bson.M{
 		"organization_id": orgID,
 		"deleted_at":      nil,
 	}
 
-	opts := options.Find().SetSort(bson.D{{Key: "level", Value: 1}, {Key: "name", Value: 1}})
+	opts := options.Find().SetSort(bson.D{{Key: "name", Value: 1}})
 
 	cursor, err := r.collection.Find(ctx, filter, opts)
 	if err != nil {
@@ -394,18 +277,12 @@ func (r *CategoryRepository) GetCategoryTree(ctx context.Context, orgID primitiv
 	return categories, nil
 }
 
-// CheckNameExists checks if a category name exists in the organization
-func (r *CategoryRepository) CheckNameExists(ctx context.Context, orgID primitive.ObjectID, name string, parentID *primitive.ObjectID, excludeID *primitive.ObjectID) (bool, error) {
+// CheckNameExists checks if a category name exists in the organization at the top level
+func (r *CategoryRepository) CheckNameExists(ctx context.Context, orgID primitive.ObjectID, name string, excludeID *primitive.ObjectID) (bool, error) {
 	filter := bson.M{
 		"organization_id": orgID,
 		"name":            name,
 		"deleted_at":      nil,
-	}
-
-	if parentID != nil {
-		filter["parent_id"] = *parentID
-	} else {
-		filter["parent_id"] = nil
 	}
 
 	if excludeID != nil {
@@ -418,6 +295,30 @@ func (r *CategoryRepository) CheckNameExists(ctx context.Context, orgID primitiv
 	}
 
 	return count > 0, nil
+}
+
+// CheckSubcategoryNameExists checks if a subcategory name exists within a specific category
+func (r *CategoryRepository) CheckSubcategoryNameExists(ctx context.Context, categoryID primitive.ObjectID, name string, excludeSubcategoryID *primitive.ObjectID) (bool, error) {
+	category, err := r.FindByID(ctx, categoryID)
+	if err != nil {
+		return false, err
+	}
+	if category == nil {
+		return false, fmt.Errorf("category not found")
+	}
+
+	for _, sub := range category.Subcategories {
+		if sub.DeletedAt != nil {
+			continue
+		}
+		if sub.Name == name {
+			if excludeSubcategoryID == nil || sub.ID != *excludeSubcategoryID {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 // FindByIDs retrieves multiple categories by their IDs
