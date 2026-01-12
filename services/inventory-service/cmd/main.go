@@ -51,6 +51,8 @@ func main() {
 	adjustmentRepo := repository.NewStockAdjustmentRepository(db)
 	countRepo := repository.NewInventoryCountRepository(db)
 	serialRepo := repository.NewSerialNumberRepository(db)
+	unitRepo := repository.NewUnitRepository(db)
+	unitChartRepo := repository.NewUnitChartRepository(db)
 
 	// Initialize services
 	stockLevelService := service.NewStockLevelService(stockLevelRepo)
@@ -59,6 +61,8 @@ func main() {
 	adjustmentService := service.NewStockAdjustmentService(adjustmentRepo, stockLevelRepo, stockMovementRepo)
 	countService := service.NewInventoryCountService(countRepo, stockLevelRepo, adjustmentRepo)
 	serialNumberService := service.NewSerialNumberService(serialRepo, stockLevelRepo)
+	unitService := service.NewUnitService(unitRepo, unitChartRepo)
+	unitChartService := service.NewUnitChartService(unitChartRepo, unitRepo)
 
 	// Initialize handlers
 	inventoryHandler := handlers.NewInventoryHandler(
@@ -69,6 +73,8 @@ func main() {
 		countService,
 		serialNumberService,
 	)
+	unitHandler := handlers.NewUnitHandler(unitService)
+	unitChartHandler := handlers.NewUnitChartHandler(unitChartService)
 
 	// Initialize JWT manager
 	jwtManager := utils.NewJWTManager(cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
@@ -96,6 +102,8 @@ func main() {
 	// API routes
 	api := router.Group("/api/v1")
 	inventoryHandler.RegisterRoutes(api, jwtManager)
+	unitHandler.RegisterRoutes(api, jwtManager)
+	unitChartHandler.RegisterRoutes(api, jwtManager)
 
 	// Start server
 	port := fmt.Sprintf("0.0.0.0:%s", cfg.Port)
@@ -220,6 +228,44 @@ func createIndexes(db *mongo.Database) error {
 	}
 	if _, err := db.Collection("serial_numbers").Indexes().CreateMany(ctx, serialIndexes); err != nil {
 		return fmt.Errorf("failed to create serial number indexes: %w", err)
+	}
+
+	// Units indexes
+	unitIndexes := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "code", Value: 1}},
+			Options: options.Index().SetUnique(true).SetName("idx_unit_code"),
+		},
+		{
+			Keys:    bson.D{{Key: "unit_type", Value: 1}, {Key: "is_active", Value: 1}},
+			Options: options.Index().SetName("idx_unit_type_active"),
+		},
+		{
+			Keys:    bson.D{{Key: "is_base_unit", Value: 1}, {Key: "unit_type", Value: 1}},
+			Options: options.Index().SetName("idx_unit_base_type"),
+		},
+	}
+	if _, err := db.Collection("units").Indexes().CreateMany(ctx, unitIndexes); err != nil {
+		return fmt.Errorf("failed to create unit indexes: %w", err)
+	}
+
+	// Unit charts indexes
+	unitChartIndexes := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "from_unit_id", Value: 1}, {Key: "to_unit_id", Value: 1}},
+			Options: options.Index().SetUnique(true).SetName("idx_unit_chart_from_to"),
+		},
+		{
+			Keys:    bson.D{{Key: "from_unit_id", Value: 1}, {Key: "is_active", Value: 1}},
+			Options: options.Index().SetName("idx_unit_chart_from_active"),
+		},
+		{
+			Keys:    bson.D{{Key: "to_unit_id", Value: 1}, {Key: "is_active", Value: 1}},
+			Options: options.Index().SetName("idx_unit_chart_to_active"),
+		},
+	}
+	if _, err := db.Collection("unit_charts").Indexes().CreateMany(ctx, unitChartIndexes); err != nil {
+		return fmt.Errorf("failed to create unit chart indexes: %w", err)
 	}
 
 	log.Println("Database indexes created successfully")
