@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/yourusername/erp-system/services/product-service/internal/repository"
 	"github.com/yourusername/erp-system/shared/models"
@@ -117,9 +118,6 @@ func (s *ProductService) CreateProduct(ctx context.Context, req CreateProductReq
 	}
 	if product.Type == "" {
 		product.Type = models.ProductTypeFinished
-	}
-	if product.Currency == "" {
-		product.Currency = "USD"
 	}
 	if product.ValuationMethod == "" {
 		product.ValuationMethod = models.ValuationFIFO
@@ -386,12 +384,8 @@ type CreateProductRequest struct {
 	Volume        float64 `json:"volume"`
 	VolumeUnit    string  `json:"volume_unit"`
 
-	// Pricing
-	CostPrice    float64 `json:"cost_price"`
-	StandardCost float64 `json:"standard_cost"`
-	SellingPrice float64 `json:"selling_price"`
-	MRP          float64 `json:"mrp"`
-	Currency     string  `json:"currency"`
+	// Pricing - Location-wise
+	LocationPrices []LocationPriceRequest `json:"location_prices"`
 
 	// Tax & Accounting
 	TaxCategoryID *string `json:"tax_category_id"`
@@ -457,12 +451,8 @@ type UpdateProductRequest struct {
 	Volume        *float64 `json:"volume"`
 	VolumeUnit    *string  `json:"volume_unit"`
 
-	// Pricing
-	CostPrice    *float64 `json:"cost_price"`
-	StandardCost *float64 `json:"standard_cost"`
-	SellingPrice *float64 `json:"selling_price"`
-	MRP          *float64 `json:"mrp"`
-	Currency     *string  `json:"currency"`
+	// Pricing - Location-wise
+	LocationPrices []LocationPriceRequest `json:"location_prices"`
 
 	// Tax & Accounting
 	TaxCategoryID *string `json:"tax_category_id"`
@@ -494,6 +484,17 @@ type UpdateProductRequest struct {
 
 	// Metadata
 	Metadata map[string]interface{} `json:"metadata"`
+}
+
+// LocationPriceRequest represents location-wise pricing request
+type LocationPriceRequest struct {
+	LocationID   string  `json:"location_id" binding:"required"`
+	LocationName string  `json:"location_name"`
+	CostPrice    float64 `json:"cost_price"`
+	SellingPrice float64 `json:"selling_price"`
+	MRP          float64 `json:"mrp"`
+	Currency     string  `json:"currency"`
+	IsActive     bool    `json:"is_active"`
 }
 
 type ProductFilter struct {
@@ -529,11 +530,8 @@ type ProductResponse struct {
 	InTransitStock float64 `json:"in_transit_stock"`
 	StockValue     float64 `json:"stock_value"`
 
-	// Pricing
-	CostPrice    float64 `json:"cost_price"`
-	SellingPrice float64 `json:"selling_price"`
-	MRP          float64 `json:"mrp"`
-	Currency     string  `json:"currency"`
+	// Pricing - Location-wise
+	LocationPrices []models.LocationPrice `json:"location_prices"`
 
 	// References
 	CategoryID *primitive.ObjectID `json:"category_id,omitempty"`
@@ -566,11 +564,6 @@ func (s *ProductService) createProductRequestToModel(req CreateProductRequest, o
 		DimensionUnit:      req.DimensionUnit,
 		Volume:             req.Volume,
 		VolumeUnit:         req.VolumeUnit,
-		CostPrice:          req.CostPrice,
-		StandardCost:       req.StandardCost,
-		SellingPrice:       req.SellingPrice,
-		MRP:                req.MRP,
-		Currency:           req.Currency,
 		HSNCode:            req.HSNCode,
 		SACCode:            req.SACCode,
 		ReorderLevel:       req.ReorderLevel,
@@ -672,6 +665,39 @@ func (s *ProductService) createProductRequestToModel(req CreateProductRequest, o
 		product.SupplierIDs = supplierIDs
 	}
 
+	// Parse location prices
+	if len(req.LocationPrices) > 0 {
+		locationPrices := make([]models.LocationPrice, 0, len(req.LocationPrices))
+		timestamp := primitive.DateTime(time.Now().Unix() * 1000)
+
+		for _, lpReq := range req.LocationPrices {
+			locID, err := primitive.ObjectIDFromHex(lpReq.LocationID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid location ID %s: %w", lpReq.LocationID, err)
+			}
+
+			lp := models.LocationPrice{
+				LocationID:   locID,
+				LocationName: lpReq.LocationName,
+				CostPrice:    lpReq.CostPrice,
+				SellingPrice: lpReq.SellingPrice,
+				MRP:          lpReq.MRP,
+				Currency:     lpReq.Currency,
+				IsActive:     lpReq.IsActive,
+				CreatedAt:    int64(timestamp),
+				ModifiedAt:   int64(timestamp),
+			}
+
+			// Set default currency if not provided
+			if lp.Currency == "" {
+				lp.Currency = "USD"
+			}
+
+			locationPrices = append(locationPrices, lp)
+		}
+		product.LocationPrices = locationPrices
+	}
+
 	return product, nil
 }
 
@@ -758,21 +784,6 @@ func (s *ProductService) applyProductUpdates(ctx context.Context, product *model
 	if req.VolumeUnit != nil {
 		product.VolumeUnit = *req.VolumeUnit
 	}
-	if req.CostPrice != nil {
-		product.CostPrice = *req.CostPrice
-	}
-	if req.StandardCost != nil {
-		product.StandardCost = *req.StandardCost
-	}
-	if req.SellingPrice != nil {
-		product.SellingPrice = *req.SellingPrice
-	}
-	if req.MRP != nil {
-		product.MRP = *req.MRP
-	}
-	if req.Currency != nil {
-		product.Currency = *req.Currency
-	}
 	if req.HSNCode != nil {
 		product.HSNCode = *req.HSNCode
 	}
@@ -820,6 +831,39 @@ func (s *ProductService) applyProductUpdates(ctx context.Context, product *model
 	}
 	if req.Metadata != nil {
 		product.Metadata = req.Metadata
+	}
+
+	// Handle location prices
+	if len(req.LocationPrices) > 0 {
+		locationPrices := make([]models.LocationPrice, 0, len(req.LocationPrices))
+		timestamp := primitive.DateTime(time.Now().Unix() * 1000)
+
+		for _, lpReq := range req.LocationPrices {
+			locID, err := primitive.ObjectIDFromHex(lpReq.LocationID)
+			if err != nil {
+				return fmt.Errorf("invalid location ID %s: %w", lpReq.LocationID, err)
+			}
+
+			lp := models.LocationPrice{
+				LocationID:   locID,
+				LocationName: lpReq.LocationName,
+				CostPrice:    lpReq.CostPrice,
+				SellingPrice: lpReq.SellingPrice,
+				MRP:          lpReq.MRP,
+				Currency:     lpReq.Currency,
+				IsActive:     lpReq.IsActive,
+				CreatedAt:    int64(timestamp),
+				ModifiedAt:   int64(timestamp),
+			}
+
+			// Set default currency if not provided
+			if lp.Currency == "" {
+				lp.Currency = "USD"
+			}
+
+			locationPrices = append(locationPrices, lp)
+		}
+		product.LocationPrices = locationPrices
 	}
 
 	return nil

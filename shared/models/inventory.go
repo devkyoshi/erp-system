@@ -129,12 +129,8 @@ type Product struct {
 	Volume        float64 `bson:"volume" json:"volume"`
 	VolumeUnit    string  `bson:"volume_unit" json:"volume_unit"`
 
-	// Pricing
-	CostPrice    float64 `bson:"cost_price" json:"cost_price"`
-	StandardCost float64 `bson:"standard_cost" json:"standard_cost"`
-	SellingPrice float64 `bson:"selling_price" json:"selling_price"`
-	MRP          float64 `bson:"mrp" json:"mrp"` // Maximum Retail Price
-	Currency     string  `bson:"currency" json:"currency"`
+	// Pricing - Location-wise
+	LocationPrices []LocationPrice `bson:"location_prices" json:"location_prices"`
 
 	// Tax & Accounting
 	TaxCategoryID primitive.ObjectID `bson:"tax_category_id" json:"tax_category_id"`
@@ -196,6 +192,19 @@ type Attachment struct {
 	URL  string `bson:"url" json:"url"`
 	Type string `bson:"type" json:"type"` // e.g., "pdf", "image"
 	Size int64  `bson:"size" json:"size"`
+}
+
+// LocationPrice represents pricing for a specific location
+type LocationPrice struct {
+	LocationID   primitive.ObjectID `bson:"location_id" json:"location_id" binding:"required"`
+	LocationName string             `bson:"location_name" json:"location_name"`
+	CostPrice    float64            `bson:"cost_price" json:"cost_price"`
+	SellingPrice float64            `bson:"selling_price" json:"selling_price"`
+	MRP          float64            `bson:"mrp" json:"mrp"` // Maximum Retail Price
+	Currency     string             `bson:"currency" json:"currency"`
+	IsActive     bool               `bson:"is_active" json:"is_active"`
+	CreatedAt    int64              `bson:"created_at" json:"created_at"`
+	ModifiedAt   int64              `bson:"modified_at" json:"modified_at"`
 }
 
 // StockLevel represents stock at a specific location

@@ -97,6 +97,11 @@ func (r *ProductRepository) FindByOrganization(ctx context.Context, orgID primit
 		filter["track_inventory"] = trackInventory
 	}
 
+	// Filter by location ID - products that have prices for this location
+	if locationID, ok := filters["location_id"].(primitive.ObjectID); ok {
+		filter["location_prices.location_id"] = locationID
+	}
+
 	// Search by name or SKU
 	if search, ok := filters["search"].(string); ok && search != "" {
 		filter["$or"] = []bson.M{

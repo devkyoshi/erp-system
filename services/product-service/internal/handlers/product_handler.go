@@ -84,10 +84,11 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 
 // GetProduct retrieves a product by ID
 // @Summary Get a product
-// @Description Retrieves a product by its ID
+// @Description Retrieves a product by its ID with optional location price filtering
 // @Tags Products
 // @Produce json
 // @Param id path string true "Product ID"
+// @Param location_id query string false "Location ID - filter to show only this location's price"
 // @Success 200 {object} utils.Response
 // @Failure 400 {object} utils.Response
 // @Failure 404 {object} utils.Response
@@ -116,6 +117,24 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusNotFound, "NOT_FOUND", err.Error(), nil)
 		return
+	}
+
+	// Filter location prices if location_id is provided
+	if locationIDParam := c.Query("location_id"); locationIDParam != "" {
+		locationID, err := primitive.ObjectIDFromHex(locationIDParam)
+		if err != nil {
+			utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid location_id", nil)
+			return
+		}
+
+		// Filter the location prices
+		filteredPrices := []models.LocationPrice{}
+		for _, lp := range product.LocationPrices {
+			if lp.LocationID == locationID {
+				filteredPrices = append(filteredPrices, lp)
+			}
+		}
+		product.LocationPrices = filteredPrices
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, product, "Product retrieved successfully")
@@ -183,6 +202,7 @@ func (h *ProductHandler) GetProductBySKU(c *gin.Context) {
 // @Param status query string false "Product status"
 // @Param type query string false "Product type"
 // @Param track_inventory query bool false "Track inventory"
+// @Param location_id query string false "Location ID - filter products by location price"
 // @Param search query string false "Search by name, SKU, or description"
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Items per page" default(10)
@@ -251,6 +271,15 @@ func (h *ProductHandler) ListProducts(c *gin.Context) {
 
 	if search := c.Query("search"); search != "" {
 		filters["search"] = search
+	}
+
+	if locationIDParam := c.Query("location_id"); locationIDParam != "" {
+		locationID, err := primitive.ObjectIDFromHex(locationIDParam)
+		if err != nil {
+			utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid location_id", nil)
+			return
+		}
+		filters["location_id"] = locationID
 	}
 
 	// Pagination
