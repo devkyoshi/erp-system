@@ -530,6 +530,7 @@ type LocationPriceRequest struct {
 	CostPrice      float64 `json:"cost_price"`
 	SellingPrice   float64 `json:"selling_price"`
 	MRP            float64 `json:"mrp"`
+	InitialStock   float64 `json:"initial_stock"`
 	Currency       string  `json:"currency"`
 	IsActive       bool    `json:"is_active"`
 }
@@ -719,6 +720,7 @@ func (s *ProductService) createProductRequestToModel(req CreateProductRequest, o
 				CostPrice:    lpReq.CostPrice,
 				SellingPrice: lpReq.SellingPrice,
 				MRP:          lpReq.MRP,
+				InitialStock: lpReq.InitialStock,
 				Currency:     lpReq.Currency,
 				IsActive:     lpReq.IsActive,
 				CreatedAt:    int64(timestamp),
@@ -903,6 +905,7 @@ func (s *ProductService) applyProductUpdates(ctx context.Context, product *model
 				CostPrice:    lpReq.CostPrice,
 				SellingPrice: lpReq.SellingPrice,
 				MRP:          lpReq.MRP,
+				InitialStock: lpReq.InitialStock,
 				Currency:     lpReq.Currency,
 				IsActive:     lpReq.IsActive,
 				CreatedAt:    int64(timestamp),

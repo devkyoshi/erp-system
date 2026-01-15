@@ -205,6 +205,7 @@ type LocationPrice struct {
 	CostPrice      float64            `bson:"cost_price" json:"cost_price"`
 	SellingPrice float64            `bson:"selling_price" json:"selling_price"`
 	MRP          float64            `bson:"mrp" json:"mrp"` // Maximum Retail Price
+	InitialStock   float64            `bson:"initial_stock" json:"initial_stock"`
 	Currency     string             `bson:"currency" json:"currency"`
 	IsActive     bool               `bson:"is_active" json:"is_active"`
 	CreatedAt    int64              `bson:"created_at" json:"created_at"`

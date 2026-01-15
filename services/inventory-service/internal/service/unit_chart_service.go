@@ -122,12 +122,12 @@ type UnitConversionResponse struct {
 }
 
 type UnitResponse struct {
-	ID          primitive.ObjectID       `json:"id"`
-	Name        string                   `json:"name"`
-	Code        string                   `json:"code"`
-	UnitType    string                   `json:"unit_type"`
-	IsBaseUnit  bool                     `json:"is_base_unit"`
-	Conversions []UnitConversionResponse `json:"conversions,omitempty"`
+	ID          primitive.ObjectID     `json:"id"`
+	Name        string                 `json:"name"`
+	Code        string                 `json:"code"`
+	UnitType    string                 `json:"unit_type"`
+	IsBaseUnit  bool                   `json:"is_base_unit"`
+	Conversion  UnitConversionResponse `json:"conversion"`
 }
 
 func (s *UnitChartService) GetUnitCharts(
@@ -136,8 +136,6 @@ func (s *UnitChartService) GetUnitCharts(
 ) ([]UnitResponse, error) {
 
 	// Fetch all units
-	// Note: We might need to adjust UnitRepository to allow listing all units without filters if needed,
-	// but reusing Find with activeOnly seems appropriate here.
 	units, err := s.unitRepo.Find(ctx, nil, activeOnly)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get units: %w", err)
@@ -149,44 +147,43 @@ func (s *UnitChartService) GetUnitCharts(
 		return nil, fmt.Errorf("failed to get unit charts: %w", err)
 	}
 
-	// Create a map of units for quick lookup
-	unitMap := make(map[primitive.ObjectID]string)
-	unitCodeMap := make(map[primitive.ObjectID]string)
+	// Create a map of units for quick lookup (by ID)
+	unitMap := make(map[primitive.ObjectID]*models.Unit)
 	for _, u := range units {
-		unitMap[u.ID] = u.Name
-		unitCodeMap[u.ID] = u.Code
+		unitMap[u.ID] = u
 	}
 
-	// Map conversions by FromUnitID
-	conversionsMap := make(map[primitive.ObjectID][]UnitConversionResponse)
+	var response []UnitResponse
+
+	// Iterate over charts to build the response
+	// This naturally filters out units with no conversions, as we drive off the charts list
 	for _, chart := range charts {
 		if chart.FromUnitID.IsZero() || chart.ToUnitID.IsZero() {
 			continue
 		}
 
-		// Ensure referenced units exist (could happen if units were soft deleted but charts were not cleaned up, though uncommon)
-		if _, ok := unitMap[chart.ToUnitID]; !ok {
+		fromUnit, fromOk := unitMap[chart.FromUnitID]
+		toUnit, toOk := unitMap[chart.ToUnitID]
+
+		// Ensure both units exist
+		if !fromOk || !toOk {
 			continue
 		}
 
 		conv := UnitConversionResponse{
-			ToUnitID:       chart.ToUnitID,
-			ToUnitName:     unitMap[chart.ToUnitID],
-			ToUnitCode:     unitCodeMap[chart.ToUnitID],
+			ToUnitID:       toUnit.ID,
+			ToUnitName:     toUnit.Name,
+			ToUnitCode:     toUnit.Code,
 			ConversionRate: chart.ConversionRate,
 		}
-		conversionsMap[chart.FromUnitID] = append(conversionsMap[chart.FromUnitID], conv)
-	}
 
-	var response []UnitResponse
-	for _, u := range units {
 		response = append(response, UnitResponse{
-			ID:          u.ID,
-			Name:        u.Name,
-			Code:        u.Code,
-			UnitType:    u.UnitType,
-			IsBaseUnit:  u.IsBaseUnit,
-			Conversions: conversionsMap[u.ID],
+			ID:         fromUnit.ID,
+			Name:       fromUnit.Name,
+			Code:       fromUnit.Code,
+			UnitType:   fromUnit.UnitType,
+			IsBaseUnit: fromUnit.IsBaseUnit,
+			Conversion: conv,
 		})
 	}
 
