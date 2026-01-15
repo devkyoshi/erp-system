@@ -25,6 +25,7 @@ func (h *UnitChartHandler) RegisterRoutes(router *gin.RouterGroup, jwtManager *u
 	unitCharts.Use(middleware.AuthMiddleware(jwtManager))
 	{
 		unitCharts.POST("", h.CreateUnitChart)
+		unitCharts.GET("", h.GetUnitCharts)
 		unitCharts.GET("/:id", h.GetUnitChart)
 		unitCharts.PUT("/:id", h.UpdateUnitChart)
 		unitCharts.DELETE("/:id", h.DeleteUnitChart)
@@ -95,6 +96,26 @@ func (h *UnitChartHandler) GetUnitChart(c *gin.Context) {
 	}
 
 	utils.SuccessResponse(c, http.StatusOK, chart, "Unit chart retrieved successfully")
+}
+
+// GetUnitCharts godoc
+// @Summary Get all unit charts with conversions
+// @Tags UnitCharts
+// @Produce json
+// @Param active_only query bool false "Filter active only"
+// @Success 200 {array} service.UnitResponse
+// @Failure 500 {object} utils.ErrorResponse
+// @Router /unit-charts [get]
+func (h *UnitChartHandler) GetUnitCharts(c *gin.Context) {
+	activeOnly := c.Query("active_only") == "true"
+
+	charts, err := h.unitChartService.GetUnitCharts(c.Request.Context(), activeOnly)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "FETCH_FAILED", err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, charts, "Unit charts retrieved successfully")
 }
 
 

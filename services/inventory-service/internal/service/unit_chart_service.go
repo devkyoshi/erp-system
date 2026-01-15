@@ -114,17 +114,83 @@ func (s *UnitChartService) GetUnitChart(
 	return chart, nil
 }
 
+type UnitConversionResponse struct {
+	ToUnitID       primitive.ObjectID `json:"to_unit_id"`
+	ToUnitName     string             `json:"to_unit_name"`
+	ToUnitCode     string             `json:"to_unit_code"`
+	ConversionRate float64            `json:"conversion_rate"`
+}
+
+type UnitResponse struct {
+	ID          primitive.ObjectID       `json:"id"`
+	Name        string                   `json:"name"`
+	Code        string                   `json:"code"`
+	UnitType    string                   `json:"unit_type"`
+	IsBaseUnit  bool                     `json:"is_base_unit"`
+	Conversions []UnitConversionResponse `json:"conversions,omitempty"`
+}
+
 func (s *UnitChartService) GetUnitCharts(
 	ctx context.Context,
 	activeOnly bool,
-) ([]*models.UnitChart, error) {
+) ([]UnitResponse, error) {
 
+	// Fetch all units
+	// Note: We might need to adjust UnitRepository to allow listing all units without filters if needed,
+	// but reusing Find with activeOnly seems appropriate here.
+	units, err := s.unitRepo.Find(ctx, nil, activeOnly)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get units: %w", err)
+	}
+
+	// Fetch all charts
 	charts, err := s.unitChartRepo.Find(ctx, activeOnly)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get unit charts: %w", err)
 	}
 
-	return charts, nil
+	// Create a map of units for quick lookup
+	unitMap := make(map[primitive.ObjectID]string)
+	unitCodeMap := make(map[primitive.ObjectID]string)
+	for _, u := range units {
+		unitMap[u.ID] = u.Name
+		unitCodeMap[u.ID] = u.Code
+	}
+
+	// Map conversions by FromUnitID
+	conversionsMap := make(map[primitive.ObjectID][]UnitConversionResponse)
+	for _, chart := range charts {
+		if chart.FromUnitID.IsZero() || chart.ToUnitID.IsZero() {
+			continue
+		}
+
+		// Ensure referenced units exist (could happen if units were soft deleted but charts were not cleaned up, though uncommon)
+		if _, ok := unitMap[chart.ToUnitID]; !ok {
+			continue
+		}
+
+		conv := UnitConversionResponse{
+			ToUnitID:       chart.ToUnitID,
+			ToUnitName:     unitMap[chart.ToUnitID],
+			ToUnitCode:     unitCodeMap[chart.ToUnitID],
+			ConversionRate: chart.ConversionRate,
+		}
+		conversionsMap[chart.FromUnitID] = append(conversionsMap[chart.FromUnitID], conv)
+	}
+
+	var response []UnitResponse
+	for _, u := range units {
+		response = append(response, UnitResponse{
+			ID:          u.ID,
+			Name:        u.Name,
+			Code:        u.Code,
+			UnitType:    u.UnitType,
+			IsBaseUnit:  u.IsBaseUnit,
+			Conversions: conversionsMap[u.ID],
+		})
+	}
+
+	return response, nil
 }
 
 func (s *UnitChartService) UpdateUnitChart(

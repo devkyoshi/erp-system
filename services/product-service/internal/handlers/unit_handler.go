@@ -28,11 +28,6 @@ func (h *UnitHandler) RegisterUnitRoutes(router *gin.RouterGroup, jwtManager *ut
 	{
 		units.GET("", h.ListUnits)
 	}
-
-	unitCharts := protected.Group("/unit-charts")
-	{
-		unitCharts.GET("", h.ListUnitCharts)
-	}
 }
 
 // ListUnits retrieves all units basic info
@@ -44,23 +39,6 @@ func (h *UnitHandler) RegisterUnitRoutes(router *gin.RouterGroup, jwtManager *ut
 // @Router /units [get]
 func (h *UnitHandler) ListUnits(c *gin.Context) {
 	units, err := h.unitService.ListUnits(c.Request.Context())
-	if err != nil {
-		utils.ErrorResponse(c, http.StatusInternalServerError, "FETCH_FAILED", err.Error(), nil)
-		return
-	}
-
-	utils.SuccessResponse(c, http.StatusOK, units, "Units retrieved successfully")
-}
-
-// ListUnitCharts retrieves all units with conversions
-// @Summary List unit charts
-// @Description Retrieves all available units with their conversion rules
-// @Tags Units
-// @Produce json
-// @Success 200 {object} utils.Response
-// @Router /unit-charts [get]
-func (h *UnitHandler) ListUnitCharts(c *gin.Context) {
-	units, err := h.unitService.ListUnitsWithConversion(c.Request.Context())
 	if err != nil {
 		utils.ErrorResponse(c, http.StatusInternalServerError, "FETCH_FAILED", err.Error(), nil)
 		return
