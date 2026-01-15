@@ -56,16 +56,19 @@ func main() {
 	brandRepo := repository.NewBrandRepository(mongoDB.Database)
 	categoryRepo := repository.NewCategoryRepository(mongoDB.Database)
 	orgRepo := repository.NewOrganizationRepository(mongoDB.Database)
+	unitRepo := repository.NewUnitRepository(mongoDB.Database)
 
 	// Initialize services
-	productService := service.NewProductService(productRepo, categoryRepo, brandRepo, orgRepo)
+	productService := service.NewProductService(productRepo, categoryRepo, brandRepo, orgRepo, unitRepo)
 	brandService := service.NewBrandService(brandRepo, orgRepo)
 	categoryService := service.NewCategoryService(categoryRepo, orgRepo)
+	unitService := service.NewUnitService(unitRepo)
 
 	// Initialize handlers
 	productHandler := handlers.NewProductHandler(productService)
 	brandHandler := handlers.NewBrandHandler(brandService)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
+	unitHandler := handlers.NewUnitHandler(unitService)
 
 	// Set Gin mode
 	if cfg.Environment == "production" {
@@ -92,6 +95,7 @@ func main() {
 	productHandler.RegisterProductRoutes(v1, jwtManager)
 	brandHandler.RegisterBrandRoutes(v1, jwtManager)
 	categoryHandler.RegisterCategoryRoutes(v1, jwtManager)
+	unitHandler.RegisterUnitRoutes(v1, jwtManager)
 
 	// Start server
 	srv := &http.Server{

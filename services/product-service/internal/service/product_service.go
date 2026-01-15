@@ -15,6 +15,7 @@ type ProductService struct {
 	categoryRepo *repository.CategoryRepository
 	brandRepo    *repository.BrandRepository
 	orgRepo      *repository.OrganizationRepository
+	unitRepo     *repository.UnitRepository
 }
 
 func NewProductService(
@@ -22,12 +23,14 @@ func NewProductService(
 	categoryRepo *repository.CategoryRepository,
 	brandRepo *repository.BrandRepository,
 	orgRepo *repository.OrganizationRepository,
+	unitRepo *repository.UnitRepository,
 ) *ProductService {
 	return &ProductService{
 		productRepo:  productRepo,
 		categoryRepo: categoryRepo,
 		brandRepo:    brandRepo,
 		orgRepo:      orgRepo,
+		unitRepo:     unitRepo,
 	}
 }
 
@@ -170,6 +173,11 @@ func (s *ProductService) GetProduct(ctx context.Context, id primitive.ObjectID, 
 		response.Category = category
 	}
 
+	// Populate unit details in location prices
+	if err := s.populateUnits(ctx, &response.Product); err != nil {
+		fmt.Printf("Warning: could not populate units for product %s: %v\n", product.ID.Hex(), err)
+	}
+
 	return response, nil
 }
 
@@ -184,7 +192,19 @@ func (s *ProductService) ListProducts(ctx context.Context, orgID primitive.Objec
 		return nil, 0, fmt.Errorf("organization not found")
 	}
 
-	return s.productRepo.FindByOrganization(ctx, orgID, filters, page, limit)
+	products, total, err := s.productRepo.FindByOrganization(ctx, orgID, filters, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Populate units for all products
+	for _, product := range products {
+		if err := s.populateUnits(ctx, product); err != nil {
+			fmt.Printf("Warning: could not populate units for product %s: %v\n", product.ID.Hex(), err)
+		}
+	}
+
+	return products, total, nil
 }
 
 // UpdateProduct updates an existing product
@@ -329,7 +349,18 @@ func (s *ProductService) DeleteProduct(ctx context.Context, id primitive.ObjectI
 
 // GetLowStockProducts retrieves products below reorder level
 func (s *ProductService) GetLowStockProducts(ctx context.Context, orgID primitive.ObjectID) ([]*models.Product, error) {
-	return s.productRepo.GetLowStockProducts(ctx, orgID)
+	products, err := s.productRepo.GetLowStockProducts(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, product := range products {
+		if err := s.populateUnits(ctx, product); err != nil {
+			fmt.Printf("Warning: could not populate units for product %s: %v\n", product.ID.Hex(), err)
+		}
+	}
+
+	return products, nil
 }
 
 // GetProductBySKU retrieves a product by SKU
@@ -345,6 +376,10 @@ func (s *ProductService) GetProductBySKU(ctx context.Context, orgID primitive.Ob
 	}
 	if product == nil {
 		return nil, fmt.Errorf("product not found")
+	}
+
+	if err := s.populateUnits(ctx, product); err != nil {
+		fmt.Printf("Warning: could not populate units for product %s: %v\n", product.ID.Hex(), err)
 	}
 
 	return product, nil
@@ -490,6 +525,7 @@ type UpdateProductRequest struct {
 type LocationPriceRequest struct {
 	LocationID   string  `json:"location_id" binding:"required"`
 	LocationName string  `json:"location_name"`
+	UnitID       string  `json:"unit_id"`
 	CostPrice    float64 `json:"cost_price"`
 	SellingPrice float64 `json:"selling_price"`
 	MRP          float64 `json:"mrp"`
@@ -688,6 +724,14 @@ func (s *ProductService) createProductRequestToModel(req CreateProductRequest, o
 				ModifiedAt:   int64(timestamp),
 			}
 
+			if lpReq.UnitID != "" {
+				unitID, err := primitive.ObjectIDFromHex(lpReq.UnitID)
+				if err != nil {
+					return nil, fmt.Errorf("invalid unit ID %s: %w", lpReq.UnitID, err)
+				}
+				lp.UnitID = unitID
+			}
+
 			// Set default currency if not provided
 			if lp.Currency == "" {
 				lp.Currency = "USD"
@@ -856,6 +900,14 @@ func (s *ProductService) applyProductUpdates(ctx context.Context, product *model
 				ModifiedAt:   int64(timestamp),
 			}
 
+			if lpReq.UnitID != "" {
+				unitID, err := primitive.ObjectIDFromHex(lpReq.UnitID)
+				if err != nil {
+					return fmt.Errorf("invalid unit ID %s: %w", lpReq.UnitID, err)
+				}
+				lp.UnitID = unitID
+			}
+
 			// Set default currency if not provided
 			if lp.Currency == "" {
 				lp.Currency = "USD"
@@ -864,6 +916,53 @@ func (s *ProductService) applyProductUpdates(ctx context.Context, product *model
 			locationPrices = append(locationPrices, lp)
 		}
 		product.LocationPrices = locationPrices
+	}
+
+	return nil
+}
+
+// Helper: populateUnits fetches and attaches Unit details to LocationPrices
+func (s *ProductService) populateUnits(ctx context.Context, product *models.Product) error {
+	if len(product.LocationPrices) == 0 {
+		return nil
+	}
+
+	// Collect unique unit IDs
+	unitIDs := make([]primitive.ObjectID, 0)
+	unitIDMap := make(map[primitive.ObjectID]bool)
+
+	for _, lp := range product.LocationPrices {
+		if !lp.UnitID.IsZero() {
+			if !unitIDMap[lp.UnitID] {
+				unitIDs = append(unitIDs, lp.UnitID)
+				unitIDMap[lp.UnitID] = true
+			}
+		}
+	}
+
+	if len(unitIDs) == 0 {
+		return nil
+	}
+
+	// Fetch units
+	units, err := s.unitRepo.FindByIDs(ctx, unitIDs)
+	if err != nil {
+		return err
+	}
+
+	// Map units for quick lookup
+	unitsMap := make(map[primitive.ObjectID]*models.Unit)
+	for _, unit := range units {
+		unitsMap[unit.ID] = unit
+	}
+
+	// Assign units to location prices
+	for i := range product.LocationPrices {
+		if !product.LocationPrices[i].UnitID.IsZero() {
+			if unit, ok := unitsMap[product.LocationPrices[i].UnitID]; ok {
+				product.LocationPrices[i].Unit = unit
+			}
+		}
 	}
 
 	return nil
