@@ -355,3 +355,31 @@ func (s *AuthService) generateAuthResponse(ctx context.Context, user *models.Use
 		User:         user,
 	}, nil
 }
+
+// UpdateUserOrganization updates a user's organization
+func (s *AuthService) UpdateUserOrganization(ctx context.Context, userID, orgID string) (*models.User, error) {
+	userObjID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	orgObjID, err := primitive.ObjectIDFromHex(orgID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid organization ID: %w", err)
+	}
+
+	user, err := s.userRepo.FindByID(ctx, userObjID)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	user.OrganizationID = orgObjID
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}

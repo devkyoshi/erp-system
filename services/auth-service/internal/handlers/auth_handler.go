@@ -200,6 +200,41 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, user, "User profile retrieved successfully")
 }
 
+// UpdateUserOrganization updates a user's organization
+// @Summary Update user organization
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Param request body map[string]string true "Organization ID"
+// @Success 200 {object} utils.Response
+// @Failure 401 {object} utils.Response
+// @Router /auth/users/{id}/organization [put]
+func (h *AuthHandler) UpdateUserOrganization(c *gin.Context) {
+	userID := c.Param("id")
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "User ID is required", nil)
+		return
+	}
+
+	var req struct {
+		OrganizationID string `json:"organization_id" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error(), nil)
+		return
+	}
+
+	user, err := h.authService.UpdateUserOrganization(c.Request.Context(), userID, req.OrganizationID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "UPDATE_FAILED", err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, user, "User organization updated successfully")
+}
+
 // RegisterRoutes registers all auth routes
 func (h *AuthHandler) RegisterRoutes(router *gin.RouterGroup, jwtManager *utils.JWTManager) {
 	auth := router.Group("/auth")
@@ -216,6 +251,7 @@ func (h *AuthHandler) RegisterRoutes(router *gin.RouterGroup, jwtManager *utils.
 		protected.Use(middleware.AuthMiddleware(jwtManager))
 		{
 			protected.GET("/me", h.GetMe)
+			protected.PUT("/users/:id/organization", h.UpdateUserOrganization)
 		}
 	}
 }

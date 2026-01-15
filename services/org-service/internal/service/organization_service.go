@@ -557,6 +557,52 @@ func (s *OrganizationService) GetUserAccess(ctx context.Context, userID primitiv
 	}, nil
 }
 
+// AssignUserToCompany assigns a user to all locations within a company.
+// This effectively gives the user access to the company.
+func (s *OrganizationService) AssignUserToCompany(ctx context.Context, companyID primitive.ObjectID, userID primitive.ObjectID, roleID primitive.ObjectID) error {
+	// Verify company exists
+	company, err := s.companyRepo.FindByID(ctx, companyID)
+	if err != nil {
+		return err
+	}
+	if company == nil {
+		return fmt.Errorf("company not found")
+	}
+
+	// Get all locations for this company
+	locations, _, err := s.locationRepo.FindByCompany(ctx, companyID, 1, 1000) // Assume max 1000 locations for now
+	if err != nil {
+		return err
+	}
+
+	for _, location := range locations {
+		// Check if user is already assigned
+		existing, err := s.locationUserRepo.FindByUserIDAndLocationID(ctx, userID, location.ID)
+		if err != nil {
+			return err
+		}
+		if existing != nil {
+			continue // Skip if already assigned
+		}
+
+		locationUser := &models.LocationUser{
+			LocationID:  location.ID,
+			UserID:      userID,
+			RoleID:      roleID,
+			IsPrimary:   false,
+			IsActive:    true,
+			AssignedAt:  time.Now(),
+			AccessLevel: "full", // Default access level
+		}
+
+		if err := s.locationUserRepo.Create(ctx, locationUser); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Response structures for user access
 type UserAccessResponse struct {
 	Organization *models.Organization    `json:"organization"`

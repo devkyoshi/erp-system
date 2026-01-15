@@ -231,6 +231,44 @@ func (h *OrganizationHandler) DeleteCompany(c *gin.Context) {
 	utils.SuccessResponse(c, http.StatusOK, nil, "Company deleted successfully")
 }
 
+// AssignUserToCompany assigns a user to a company
+func (h *OrganizationHandler) AssignUserToCompany(c *gin.Context) {
+	companyID, err := primitive.ObjectIDFromHex(c.Param("id"))
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid company ID", nil)
+		return
+	}
+
+	var req struct {
+		UserID string `json:"user_id" binding:"required"`
+		RoleID string `json:"role_id" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error(), nil)
+		return
+	}
+
+	userID, err := primitive.ObjectIDFromHex(req.UserID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid user ID", nil)
+		return
+	}
+
+	roleID, err := primitive.ObjectIDFromHex(req.RoleID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "INVALID_ID", "Invalid role ID", nil)
+		return
+	}
+
+	if err := h.orgService.AssignUserToCompany(c.Request.Context(), companyID, userID, roleID); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "ASSIGNMENT_FAILED", err.Error(), nil)
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, nil, "User assigned to company successfully")
+}
+
 // CreateLocation creates a new location
 func (h *OrganizationHandler) CreateLocation(c *gin.Context) {
 	companyID, err := primitive.ObjectIDFromHex(c.Param("id"))
@@ -358,6 +396,7 @@ func (h *OrganizationHandler) RegisterRoutes(router *gin.RouterGroup, jwtManager
 		companies.GET("/:id", h.GetCompany)
 		companies.PUT("/:id", h.UpdateCompany)
 		companies.DELETE("/:id", h.DeleteCompany)
+		companies.POST("/:id/users", h.AssignUserToCompany)
 
 		// Locations under company
 		companies.POST("/:id/locations", h.CreateLocation)

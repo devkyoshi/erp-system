@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/yourusername/erp-system/shared/models"
 	"go.mongodb.org/mongo-driver/bson"
@@ -18,6 +19,19 @@ func NewLocationUserRepository(db *mongo.Database) *LocationUserRepository {
 	return &LocationUserRepository{
 		collection: db.Collection("location_users"),
 	}
+}
+
+// Create creates a new location user
+func (r *LocationUserRepository) Create(ctx context.Context, locationUser *models.LocationUser) error {
+	locationUser.ID = primitive.NewObjectID()
+	locationUser.CreatedAt = time.Now()
+	locationUser.UpdatedAt = time.Now()
+
+	_, err := r.collection.InsertOne(ctx, locationUser)
+	if err != nil {
+		return fmt.Errorf("failed to create location user: %w", err)
+	}
+	return nil
 }
 
 // FindLocationsByUserID finds all locations accessible by a user
