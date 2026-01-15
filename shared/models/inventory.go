@@ -197,10 +197,12 @@ type Attachment struct {
 // LocationPrice represents pricing for a specific location
 type LocationPrice struct {
 	LocationID   primitive.ObjectID `bson:"location_id" json:"location_id" binding:"required"`
-	LocationName string             `bson:"location_name" json:"location_name"`
-	UnitID       primitive.ObjectID `bson:"unit_id" json:"unit_id"`
-	Unit         *Unit              `bson:"-" json:"unit,omitempty"`
-	CostPrice    float64            `bson:"cost_price" json:"cost_price"`
+	LocationName   string             `bson:"location_name" json:"location_name"`
+	PurchaseUnitID primitive.ObjectID `bson:"purchase_unit_id" json:"purchase_unit_id"`
+	PurchaseUnit   *Unit              `bson:"-" json:"purchase_unit,omitempty"`
+	SellingUnitID  primitive.ObjectID `bson:"selling_unit_id" json:"selling_unit_id"`
+	SellingUnit    *Unit              `bson:"-" json:"selling_unit,omitempty"`
+	CostPrice      float64            `bson:"cost_price" json:"cost_price"`
 	SellingPrice float64            `bson:"selling_price" json:"selling_price"`
 	MRP          float64            `bson:"mrp" json:"mrp"` // Maximum Retail Price
 	Currency     string             `bson:"currency" json:"currency"`

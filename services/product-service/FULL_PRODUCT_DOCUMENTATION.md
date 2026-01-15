@@ -23,7 +23,8 @@ The `Product` entity is the core of the inventory system. It represents items th
 **Location-wise Pricing (`location_prices`):**
 Products can have different prices in different locations (stores/warehouses).
 - `location_id`: Reference to the Location.
-- `unit_id`: **(New)** The specific unit for this price (e.g., Price per "Box" at "Warehouse A").
+- `purchase_unit_id`: **(New)** The unit used for cost pricing (e.g., Cost per "Box").
+- `selling_unit_id`: **(New)** The unit used for selling pricing (e.g., Price per "Piece").
 - `cost_price`: Cost to the company.
 - `selling_price`: Selling price.
 - `currency`: Currency code (e.g., "USD").
@@ -86,15 +87,17 @@ Create a product with location-specific pricing and units.
   "location_prices": [
     {
       "location_id": "...",
-      "unit_id": "...",    // ID for "Six-Pack"
-      "selling_price": 5.99
+      "purchase_unit_id": "...",    // ID for "Box" (Cost)
+      "selling_unit_id": "...",     // ID for "Can" (Selling)
+      "cost_price": 50.00,
+      "selling_price": 1.50
     }
   ]
 }
 ```
 
 #### Get Product `GET /api/v1/products/{id}`
-Retrieves product details. The response auto-populates the full `unit` object within `location_prices` for display purposes.
+Retrieves product details. The response auto-populates the full `unit` objects within `location_prices` for display purposes.
 
 **Response Snippet:**
 ```json
@@ -103,11 +106,17 @@ Retrieves product details. The response auto-populates the full `unit` object wi
   "location_prices": [
     {
       "location_id": "...",
-      "price": 5.99,
-      "unit_id": "...",
-      "unit": {          // Populated details
-        "name": "Six-Pack",
-        "code": "6PK"
+      "cost_price": 50.00,
+      "selling_price": 1.50,
+      "purchase_unit_id": "...",
+      "purchase_unit": {          // Populated details
+        "name": "Box",
+        "code": "BOX"
+      },
+      "selling_unit_id": "...",
+      "selling_unit": {          // Populated details
+        "name": "Can",
+        "code": "CAN"
       }
     }
   ]

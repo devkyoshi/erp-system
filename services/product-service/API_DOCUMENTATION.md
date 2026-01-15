@@ -64,12 +64,17 @@ Retrieves a list of all active units of measure along with their conversion rule
     {
       "location_id": "60d5ec49f1b2c62c8428a1e2",
       "location_name": "Main Warehouse",
-      "unit_id": "60d5ec49f1b2c62c8428a1e1", // Added Field
-      "unit": {                          // Populated Field (Response Only)
+      "purchase_unit_id": "60d5ec49f1b2c62c8428a1e1", // Added Field
+      "purchase_unit": {                          // Populated Field (Response Only)
         "id": "60d5ec49f1b2c62c8428a1e1",
         "name": "Box",
-        "code": "BOX",
-        "symbol": "box"
+        "code": "BOX"
+      },
+      "selling_unit_id": "60d5ec49f1b2c62c8428a1e0", // Added Field
+      "selling_unit": {                          // Populated Field (Response Only)
+        "id": "60d5ec49f1b2c62c8428a1e0",
+        "name": "Pieces",
+        "code": "PCS"
       },
       "cost_price": 100,
       "selling_price": 150,
@@ -97,7 +102,8 @@ Creates a new product.
     {
       "location_id": "60d5ec49f1b2c62c8428a1e2",
       "location_name": "Main Store",
-      "unit_id": "60d5ec49f1b2c62c8428a1e1", // Optional: Specify unit for this price
+      "purchase_unit_id": "60d5ec49f1b2c62c8428a1e1", // Unit for Cost Price
+      "selling_unit_id": "60d5ec49f1b2c62c8428a1e0",  // Unit for Selling Price
       "cost_price": 50.00,
       "selling_price": 85.00,
       "mrp": 100.00,
@@ -142,12 +148,17 @@ Retrieves a single product by ID. The `location_prices` will include full `unit`
       {
         "location_id": "60d5ec49f1b2c62c8428a1e2",
         "location_name": "Main Store",
-        "unit_id": "60d5ec49f1b2c62c8428a1e1",
-        "unit": {
+        "purchase_unit_id": "60d5ec49f1b2c62c8428a1e1",
+        "purchase_unit": {
            "id": "60d5ec49f1b2c62c8428a1e1",
            "name": "Box",
-           "code": "BOX",
-           "unit_type": "quantity"
+           "code": "BOX"
+        },
+        "selling_unit_id": "60d5ec49f1b2c62c8428a1e0",
+        "selling_unit": {
+           "id": "60d5ec49f1b2c62c8428a1e0",
+           "name": "Pieces",
+           "code": "PCS"
         },
         "selling_price": 85.00
         // ...
@@ -181,7 +192,8 @@ Retrieves a list of products. Location prices in the list will also include unit
       "location_prices": [
         {
           "location_id": "...",
-          "unit": { ... },
+          "purchase_unit": { ... },
+          "selling_unit": { ... },
           "selling_price": 85.00
         }
       ]
@@ -194,7 +206,7 @@ Retrieves a list of products. Location prices in the list will also include unit
 ```
 
 ### Update Product
-Updates an existing product. You can update the `unit_id` in location prices.
+Updates an existing product. You can update the `purchase_unit_id` and `selling_unit_id` in location prices.
 
 - **Endpoint**: `PUT /products/{id}`
 
@@ -205,7 +217,8 @@ Updates an existing product. You can update the `unit_id` in location prices.
   "location_prices": [
     {
       "location_id": "60d5ec49f1b2c62c8428a1e2",
-      "unit_id": "60d5ec49f1b2c62c8428a1e0", // Changing unit to 'Pieces'
+      "purchase_unit_id": "...",
+      "selling_unit_id": "...",
       "selling_price": 8.00
     }
   ]

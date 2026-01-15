@@ -523,14 +523,15 @@ type UpdateProductRequest struct {
 
 // LocationPriceRequest represents location-wise pricing request
 type LocationPriceRequest struct {
-	LocationID   string  `json:"location_id" binding:"required"`
-	LocationName string  `json:"location_name"`
-	UnitID       string  `json:"unit_id"`
-	CostPrice    float64 `json:"cost_price"`
-	SellingPrice float64 `json:"selling_price"`
-	MRP          float64 `json:"mrp"`
-	Currency     string  `json:"currency"`
-	IsActive     bool    `json:"is_active"`
+	LocationID     string  `json:"location_id" binding:"required"`
+	LocationName   string  `json:"location_name"`
+	PurchaseUnitID string  `json:"purchase_unit_id"`
+	SellingUnitID  string  `json:"selling_unit_id"`
+	CostPrice      float64 `json:"cost_price"`
+	SellingPrice   float64 `json:"selling_price"`
+	MRP            float64 `json:"mrp"`
+	Currency       string  `json:"currency"`
+	IsActive       bool    `json:"is_active"`
 }
 
 type ProductFilter struct {
@@ -724,12 +725,20 @@ func (s *ProductService) createProductRequestToModel(req CreateProductRequest, o
 				ModifiedAt:   int64(timestamp),
 			}
 
-			if lpReq.UnitID != "" {
-				unitID, err := primitive.ObjectIDFromHex(lpReq.UnitID)
+			if lpReq.PurchaseUnitID != "" {
+				unitID, err := primitive.ObjectIDFromHex(lpReq.PurchaseUnitID)
 				if err != nil {
-					return nil, fmt.Errorf("invalid unit ID %s: %w", lpReq.UnitID, err)
+					return nil, fmt.Errorf("invalid purchase unit ID %s: %w", lpReq.PurchaseUnitID, err)
 				}
-				lp.UnitID = unitID
+				lp.PurchaseUnitID = unitID
+			}
+
+			if lpReq.SellingUnitID != "" {
+				unitID, err := primitive.ObjectIDFromHex(lpReq.SellingUnitID)
+				if err != nil {
+					return nil, fmt.Errorf("invalid selling unit ID %s: %w", lpReq.SellingUnitID, err)
+				}
+				lp.SellingUnitID = unitID
 			}
 
 			// Set default currency if not provided
@@ -900,12 +909,20 @@ func (s *ProductService) applyProductUpdates(ctx context.Context, product *model
 				ModifiedAt:   int64(timestamp),
 			}
 
-			if lpReq.UnitID != "" {
-				unitID, err := primitive.ObjectIDFromHex(lpReq.UnitID)
+			if lpReq.PurchaseUnitID != "" {
+				unitID, err := primitive.ObjectIDFromHex(lpReq.PurchaseUnitID)
 				if err != nil {
-					return fmt.Errorf("invalid unit ID %s: %w", lpReq.UnitID, err)
+					return fmt.Errorf("invalid purchase unit ID %s: %w", lpReq.PurchaseUnitID, err)
 				}
-				lp.UnitID = unitID
+				lp.PurchaseUnitID = unitID
+			}
+
+			if lpReq.SellingUnitID != "" {
+				unitID, err := primitive.ObjectIDFromHex(lpReq.SellingUnitID)
+				if err != nil {
+					return fmt.Errorf("invalid selling unit ID %s: %w", lpReq.SellingUnitID, err)
+				}
+				lp.SellingUnitID = unitID
 			}
 
 			// Set default currency if not provided
@@ -932,10 +949,16 @@ func (s *ProductService) populateUnits(ctx context.Context, product *models.Prod
 	unitIDMap := make(map[primitive.ObjectID]bool)
 
 	for _, lp := range product.LocationPrices {
-		if !lp.UnitID.IsZero() {
-			if !unitIDMap[lp.UnitID] {
-				unitIDs = append(unitIDs, lp.UnitID)
-				unitIDMap[lp.UnitID] = true
+		if !lp.PurchaseUnitID.IsZero() {
+			if !unitIDMap[lp.PurchaseUnitID] {
+				unitIDs = append(unitIDs, lp.PurchaseUnitID)
+				unitIDMap[lp.PurchaseUnitID] = true
+			}
+		}
+		if !lp.SellingUnitID.IsZero() {
+			if !unitIDMap[lp.SellingUnitID] {
+				unitIDs = append(unitIDs, lp.SellingUnitID)
+				unitIDMap[lp.SellingUnitID] = true
 			}
 		}
 	}
@@ -958,9 +981,14 @@ func (s *ProductService) populateUnits(ctx context.Context, product *models.Prod
 
 	// Assign units to location prices
 	for i := range product.LocationPrices {
-		if !product.LocationPrices[i].UnitID.IsZero() {
-			if unit, ok := unitsMap[product.LocationPrices[i].UnitID]; ok {
-				product.LocationPrices[i].Unit = unit
+		if !product.LocationPrices[i].PurchaseUnitID.IsZero() {
+			if unit, ok := unitsMap[product.LocationPrices[i].PurchaseUnitID]; ok {
+				product.LocationPrices[i].PurchaseUnit = unit
+			}
+		}
+		if !product.LocationPrices[i].SellingUnitID.IsZero() {
+			if unit, ok := unitsMap[product.LocationPrices[i].SellingUnitID]; ok {
+				product.LocationPrices[i].SellingUnit = unit
 			}
 		}
 	}
