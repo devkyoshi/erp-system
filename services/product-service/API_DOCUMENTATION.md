@@ -11,9 +11,40 @@ This service manages products, brands, categories, and units.
 ## 1. Units
 
 ### Get All Units
-Retrieves a list of all active units of measure along with their conversion rules.
+Retrieves a list of all active units of measure.
 
 - **Endpoint**: `GET /units`
+- **Auth Required**: Yes
+
+#### Response
+```json
+{
+  "success": true,
+  "status": 200,
+  "data": [
+    {
+      "id": "60d5ec49f1b2c62c8428a1e1",
+      "name": "Box",
+      "code": "BOX",
+      "unit_type": "quantity",
+      "is_base_unit": false
+    },
+    {
+      "id": "60d5ec49f1b2c62c8428a1e0",
+      "name": "Pieces",
+      "code": "PCS",
+      "unit_type": "quantity",
+      "is_base_unit": true
+    }
+  ],
+  "message": "Units retrieved successfully"
+}
+```
+
+### Get Unit Charts
+Retrieves a list of all active units of measure along with their conversion rules.
+
+- **Endpoint**: `GET /unit-charts`
 - **Auth Required**: Yes
 
 #### Response

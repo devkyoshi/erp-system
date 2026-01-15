@@ -30,7 +30,29 @@ type UnitResponse struct {
 	Code        string                   `json:"code"`
 	UnitType    string                   `json:"unit_type"`
 	IsBaseUnit  bool                     `json:"is_base_unit"`
-	Conversions []UnitConversionResponse `json:"conversions"`
+	Conversions []UnitConversionResponse `json:"conversions,omitempty"`
+}
+
+// ListUnits returns units without conversion rules
+func (s *UnitService) ListUnits(ctx context.Context) ([]UnitResponse, error) {
+	// Fetch units
+	units, err := s.unitRepo.ListUnits(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var response []UnitResponse
+	for _, u := range units {
+		response = append(response, UnitResponse{
+			ID:         u.ID,
+			Name:       u.Name,
+			Code:       u.Code,
+			UnitType:   u.UnitType,
+			IsBaseUnit: u.IsBaseUnit,
+		})
+	}
+
+	return response, nil
 }
 
 // ListUnitsWithConversion returns units with their conversion rules
