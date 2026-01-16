@@ -645,13 +645,14 @@ func (s *ProductService) createProductRequestToModel(req CreateProductRequest, o
 		product.BrandID = id
 	}
 
-	if req.ManufacturerID != nil {
-		id, err := primitive.ObjectIDFromHex(*req.ManufacturerID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid manufacturer ID: %w", err)
-		}
-		product.ManufacturerID = id
-	}
+	//TODO: 
+	// if req.ManufacturerID != nil {
+	// 	id, err := primitive.ObjectIDFromHex(*req.ManufacturerID)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("invalid manufacturer ID: %w", err)
+	// 	}
+	// 	product.ManufacturerID = id
+	// }
 
 	if req.BaseUnitID != nil {
 		id, err := primitive.ObjectIDFromHex(*req.BaseUnitID)
@@ -661,21 +662,22 @@ func (s *ProductService) createProductRequestToModel(req CreateProductRequest, o
 		product.BaseUnitID = id
 	}
 
-	if req.TaxCategoryID != nil {
-		id, err := primitive.ObjectIDFromHex(*req.TaxCategoryID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid tax category ID: %w", err)
-		}
-		product.TaxCategoryID = id
-	}
+	// TODO: if req.TaxCategoryID != nil {
+	// 	id, err := primitive.ObjectIDFromHex(*req.TaxCategoryID)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("invalid tax category ID: %w", err)
+	// 	}
+	// 	product.TaxCategoryID = id
+	// }
 
-	if req.DefaultSupplierID != nil {
-		id, err := primitive.ObjectIDFromHex(*req.DefaultSupplierID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid default supplier ID: %w", err)
-		}
-		product.DefaultSupplierID = id
-	}
+	//TODO:
+	// if req.DefaultSupplierID != nil {
+	// 	id, err := primitive.ObjectIDFromHex(*req.DefaultSupplierID)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("invalid default supplier ID: %w", err)
+	// 	}
+	// 	product.DefaultSupplierID = id
+	// }
 
 	// Parse allowed unit IDs
 	if len(req.AllowedUnitIDs) > 0 {
