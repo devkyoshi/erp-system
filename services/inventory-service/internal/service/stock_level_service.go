@@ -67,7 +67,27 @@ func (s *StockLevelService) AdjustQuantity(ctx context.Context, productID, locat
 func (s *StockLevelService) AllocateStock(ctx context.Context, productID, locationID primitive.ObjectID, quantity float64) error {
 	stock, err := s.stockRepo.FindByProductAndLocation(ctx, productID, locationID)
 	if err != nil {
-		return fmt.Errorf("stock not found: %w", err)
+		return fmt.Errorf("failed to find stock: %w", err)
+	}
+	
+	// If stock level doesn't exist, create it with 0 initial stock
+	if stock == nil {
+		now := time.Now()
+		stock = &models.StockLevel{
+			ProductID:         productID,
+			LocationID:        locationID,
+			QuantityOnHand:    0,
+			QuantityAvailable: 0,
+			QuantityAllocated: 0,
+			QuantityInTransit: 0,
+			QuantityReserved:  0,
+			AverageCost:       0,
+			LastCost:          0,
+			TotalValue:        0,
+		}
+		stock.ID = primitive.NewObjectID()
+		stock.CreatedAt = now
+		stock.UpdatedAt = now
 	}
 
 	if stock.QuantityAvailable < quantity {
