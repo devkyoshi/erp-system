@@ -284,7 +284,7 @@ func (s *ProductService) UpdateProduct(ctx context.Context, id primitive.ObjectI
 			existing.CategoryID = catID
 		}
 	}
-	}
+
 
 	// Validate subcategory if provided
 	if req.SubcategoryID != nil {
