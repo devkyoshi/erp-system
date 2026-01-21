@@ -10,6 +10,8 @@ install: ## Install all dependencies
 	@echo "Installing Go dependencies..."
 	@cd services/auth-service && go mod download
 	@cd services/org-service && go mod download
+	@cd services/procurement-service && go mod download
+	@cd services/api-gateway && go mod download
 	@echo "Dependencies installed!"
 
 dev: ## Run all services in development mode
@@ -20,12 +22,15 @@ build: ## Build all services
 	@echo "Building all services..."
 	@cd services/auth-service && go build -o ../../bin/auth-service ./cmd/main.go
 	@cd services/org-service && go build -o ../../bin/org-service ./cmd/main.go
+	@cd services/procurement-service && go build -o ../../bin/procurement-service ./cmd/main.go
+	@cd services/api-gateway && go build -o ../../bin/api-gateway ./cmd/main.go
 	@echo "Build complete!"
 
 test: ## Run tests for all services
 	@echo "Running tests..."
 	@cd services/auth-service && go test ./...
 	@cd services/org-service && go test ./...
+	@cd services/procurement-service && go test ./...
 	@echo "Tests complete!"
 
 clean: ## Clean build artifacts

@@ -74,8 +74,6 @@ bash scripts/deploy-railway.sh
 ```
 
 **📚 Documentation**
-- **[RAILWAY_SIMPLE_GUIDE.md](./RAILWAY_SIMPLE_GUIDE.md)** ← START HERE
-- [RAILWAY_SOLUTION.md](./RAILWAY_SOLUTION.md) - Complete overview
 - [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md) - All env vars
 
 **Features:**
