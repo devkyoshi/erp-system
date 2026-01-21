@@ -29,7 +29,13 @@ func (r *StockLevelRepository) FindByProductAndLocation(ctx context.Context, pro
 		"location_id": locationID,
 	}
 	err := r.collection.FindOne(ctx, filter).Decode(&stock)
-	return &stock, err
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &stock, nil
 }
 
 func (r *StockLevelRepository) FindByLocation(ctx context.Context, locationID primitive.ObjectID) ([]*models.StockLevel, error) {
