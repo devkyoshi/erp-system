@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -600,11 +601,44 @@ type SubcategoryInfo struct {
 	Code string             `json:"code"`
 }
 
-// ProductListItemResponse extends Product with category and subcategory details
+// BrandInfo represents simplified brand information for list responses
+type BrandInfo struct {
+	ID          primitive.ObjectID `json:"id"`
+	Name        string             `json:"name"`
+	Code        string             `json:"code"`
+	Description string             `json:"description,omitempty"`
+}
+
+// ProductListItemResponse extends Product with category, subcategory, and brand details
 type ProductListItemResponse struct {
 	models.Product
 	Category    *CategoryInfo    `json:"category,omitempty"`
 	Subcategory *SubcategoryInfo `json:"subcategory,omitempty"`
+	Brand       *BrandInfo       `json:"brand,omitempty"`
+}
+
+// MarshalJSON customizes JSON output to exclude redundant ID fields
+func (p *ProductListItemResponse) MarshalJSON() ([]byte, error) {
+	type Alias models.Product
+	aux := &struct {
+		*Alias
+		CategoryID    *primitive.ObjectID `json:"category_id,omitempty"`
+		SubcategoryID *primitive.ObjectID `json:"subcategory_id,omitempty"`
+		BrandID       *primitive.ObjectID `json:"brand_id,omitempty"`
+		Category      *CategoryInfo       `json:"category,omitempty"`
+		Subcategory   *SubcategoryInfo    `json:"subcategory,omitempty"`
+		Brand         *BrandInfo          `json:"brand,omitempty"`
+	}{
+		Alias:       (*Alias)(&p.Product),
+		Category:    p.Category,
+		Subcategory: p.Subcategory,
+		Brand:       p.Brand,
+		// Explicitly set ID fields to nil to exclude them
+		CategoryID:    nil,
+		SubcategoryID: nil,
+		BrandID:       nil,
+	}
+	return json.Marshal(aux)
 }
 
 
@@ -1092,6 +1126,33 @@ func (s *ProductService) populateCategories(ctx context.Context, products []*mod
 
 	// Build response with category and subcategory details
 	responses := make([]*ProductListItemResponse, 0, len(products))
+	
+	// Collect unique brand IDs
+	brandIDs := make([]primitive.ObjectID, 0)
+	brandIDMap := make(map[primitive.ObjectID]bool)
+	
+	for _, product := range products {
+		if !product.BrandID.IsZero() && !brandIDMap[product.BrandID] {
+			brandIDs = append(brandIDs, product.BrandID)
+			brandIDMap[product.BrandID] = true
+		}
+	}
+	
+	// Fetch all brands in one query
+	brandsMap := make(map[primitive.ObjectID]*models.Brand)
+	if len(brandIDs) > 0 {
+		for _, brandID := range brandIDs {
+			brand, err := s.brandRepo.FindByID(ctx, brandID)
+			if err != nil {
+				fmt.Printf("Warning: could not fetch brand %s: %v\n", brandID.Hex(), err)
+				continue
+			}
+			if brand != nil {
+				brandsMap[brandID] = brand
+			}
+		}
+	}
+	
 	for _, product := range products {
 		response := &ProductListItemResponse{
 			Product: *product,
@@ -1118,6 +1179,18 @@ func (s *ProductService) populateCategories(ctx context.Context, products []*mod
 							break
 						}
 					}
+				}
+			}
+		}
+		
+		// Add brand info if exists
+		if !product.BrandID.IsZero() {
+			if brand, ok := brandsMap[product.BrandID]; ok {
+				response.Brand = &BrandInfo{
+					ID:          brand.ID,
+					Name:        brand.Name,
+					Code:        brand.Code,
+					Description: brand.Description,
 				}
 			}
 		}
