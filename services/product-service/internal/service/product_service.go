@@ -616,17 +616,33 @@ type LocationPriceResponse struct {
 
 // MarshalJSON customizes JSON output to exclude unit ID fields
 func (lp *LocationPriceResponse) MarshalJSON() ([]byte, error) {
-	type Alias models.LocationPrice
-	aux := &struct {
-		*Alias
-		PurchaseUnitID *primitive.ObjectID `json:"purchase_unit_id,omitempty"`
-		SellingUnitID  *primitive.ObjectID `json:"selling_unit_id,omitempty"`
+	return json.Marshal(&struct {
+		LocationID     primitive.ObjectID `json:"location_id"`
+		LocationName   string             `json:"location_name,omitempty"`
+		PurchaseUnit   *models.Unit       `json:"purchase_unit,omitempty"`
+		SellingUnit    *models.Unit       `json:"selling_unit,omitempty"`
+		CostPrice      float64            `json:"cost_price"`
+		SellingPrice   float64            `json:"selling_price"`
+		MRP            float64            `json:"mrp"`
+		InitialStock   float64            `json:"initial_stock"`
+		Currency       string             `json:"currency"`
+		IsActive       bool               `json:"is_active"`
+		CreatedAt      int64              `json:"created_at"`
+		ModifiedAt     int64              `json:"modified_at"`
 	}{
-		Alias:          (*Alias)(&lp.LocationPrice),
-		PurchaseUnitID: nil, // Explicitly set to nil to exclude from JSON
-		SellingUnitID:  nil, // Explicitly set to nil to exclude from JSON
-	}
-	return json.Marshal(aux)
+		LocationID:   lp.LocationID,
+		LocationName: lp.LocationName,
+		PurchaseUnit: lp.PurchaseUnit,
+		SellingUnit:  lp.SellingUnit,
+		CostPrice:    lp.CostPrice,
+		SellingPrice: lp.SellingPrice,
+		MRP:          lp.MRP,
+		InitialStock: lp.InitialStock,
+		Currency:     lp.Currency,
+		IsActive:     lp.IsActive,
+		CreatedAt:    lp.CreatedAt,
+		ModifiedAt:   lp.ModifiedAt,
+	})
 }
 
 // ProductListItemResponse extends Product with category, subcategory, and brand details
