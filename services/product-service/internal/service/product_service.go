@@ -609,12 +609,33 @@ type BrandInfo struct {
 	Description string             `json:"description,omitempty"`
 }
 
+// LocationPriceResponse wraps LocationPrice to hide unit ID fields in JSON
+type LocationPriceResponse struct {
+	models.LocationPrice
+}
+
+// MarshalJSON customizes JSON output to exclude unit ID fields
+func (lp *LocationPriceResponse) MarshalJSON() ([]byte, error) {
+	type Alias models.LocationPrice
+	aux := &struct {
+		*Alias
+		PurchaseUnitID *primitive.ObjectID `json:"purchase_unit_id,omitempty"`
+		SellingUnitID  *primitive.ObjectID `json:"selling_unit_id,omitempty"`
+	}{
+		Alias:          (*Alias)(&lp.LocationPrice),
+		PurchaseUnitID: nil, // Explicitly set to nil to exclude from JSON
+		SellingUnitID:  nil, // Explicitly set to nil to exclude from JSON
+	}
+	return json.Marshal(aux)
+}
+
 // ProductListItemResponse extends Product with category, subcategory, and brand details
 type ProductListItemResponse struct {
 	models.Product
-	Category    *CategoryInfo    `json:"category,omitempty"`
-	Subcategory *SubcategoryInfo `json:"subcategory,omitempty"`
-	Brand       *BrandInfo       `json:"brand,omitempty"`
+	LocationPrices []LocationPriceResponse `json:"location_prices"`
+	Category       *CategoryInfo           `json:"category,omitempty"`
+	Subcategory    *SubcategoryInfo        `json:"subcategory,omitempty"`
+	Brand          *BrandInfo              `json:"brand,omitempty"`
 }
 
 // MarshalJSON customizes JSON output to exclude redundant ID fields
@@ -622,17 +643,19 @@ func (p *ProductListItemResponse) MarshalJSON() ([]byte, error) {
 	type Alias models.Product
 	aux := &struct {
 		*Alias
-		CategoryID    *primitive.ObjectID `json:"category_id,omitempty"`
-		SubcategoryID *primitive.ObjectID `json:"subcategory_id,omitempty"`
-		BrandID       *primitive.ObjectID `json:"brand_id,omitempty"`
-		Category      *CategoryInfo       `json:"category,omitempty"`
-		Subcategory   *SubcategoryInfo    `json:"subcategory,omitempty"`
-		Brand         *BrandInfo          `json:"brand,omitempty"`
+		CategoryID     *primitive.ObjectID     `json:"category_id,omitempty"`
+		SubcategoryID  *primitive.ObjectID     `json:"subcategory_id,omitempty"`
+		BrandID        *primitive.ObjectID     `json:"brand_id,omitempty"`
+		LocationPrices []LocationPriceResponse `json:"location_prices"`
+		Category       *CategoryInfo           `json:"category,omitempty"`
+		Subcategory    *SubcategoryInfo        `json:"subcategory,omitempty"`
+		Brand          *BrandInfo              `json:"brand,omitempty"`
 	}{
-		Alias:       (*Alias)(&p.Product),
-		Category:    p.Category,
-		Subcategory: p.Subcategory,
-		Brand:       p.Brand,
+		Alias:          (*Alias)(&p.Product),
+		LocationPrices: p.LocationPrices,
+		Category:       p.Category,
+		Subcategory:    p.Subcategory,
+		Brand:          p.Brand,
 		// Explicitly set ID fields to nil to exclude them
 		CategoryID:    nil,
 		SubcategoryID: nil,
@@ -1153,10 +1176,18 @@ func (s *ProductService) populateCategories(ctx context.Context, products []*mod
 		}
 	}
 	
+	
 	for _, product := range products {
 		response := &ProductListItemResponse{
 			Product: *product,
 		}
+		
+		// Convert location prices to response type
+		locationPrices := make([]LocationPriceResponse, len(product.LocationPrices))
+		for i, lp := range product.LocationPrices {
+			locationPrices[i] = LocationPriceResponse{LocationPrice: lp}
+		}
+		response.LocationPrices = locationPrices
 
 		// Add category info if exists
 		if !product.CategoryID.IsZero() {
