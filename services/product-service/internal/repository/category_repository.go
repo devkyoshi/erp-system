@@ -68,6 +68,25 @@ func (r *CategoryRepository) FindByID(ctx context.Context, id primitive.ObjectID
 	return &category, nil
 }
 
+// FindParentBySubcategoryID retrieves the parent category for a given subcategory ID
+func (r *CategoryRepository) FindParentBySubcategoryID(ctx context.Context, subcategoryID primitive.ObjectID) (*models.ProductCategory, error) {
+	var category models.ProductCategory
+	filter := bson.M{
+		"subcategories._id": subcategoryID,
+		"deleted_at":        nil,
+	}
+
+	err := r.collection.FindOne(ctx, filter).Decode(&category)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &category, nil
+}
+
 // FindByOrganization retrieves categories for an organization with optional filters
 func (r *CategoryRepository) FindByOrganization(ctx context.Context, orgID primitive.ObjectID, isActive *bool, query string, page, limit int) ([]*models.ProductCategory, int64, error) {
 	filter := bson.M{

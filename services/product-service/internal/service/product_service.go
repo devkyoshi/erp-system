@@ -78,7 +78,20 @@ func (s *ProductService) CreateProduct(ctx context.Context, req CreateProductReq
 			return nil, err
 		}
 		if category == nil {
-			return nil, fmt.Errorf("category not found")
+			// Try to find if this is a subcategory ID
+			parentCategory, err := s.categoryRepo.FindParentBySubcategoryID(ctx, product.CategoryID)
+			if err != nil {
+				return nil, err
+			}
+			if parentCategory != nil {
+				// User passed a subcategory ID as category ID
+				// Set CategoryID to parent, and SubcategoryID to the input ID
+				product.SubcategoryID = product.CategoryID
+				product.CategoryID = parentCategory.ID
+				category = parentCategory
+			} else {
+				return nil, fmt.Errorf("category not found")
+			}
 		}
 		if category.OrganizationID != product.OrganizationID {
 			return nil, fmt.Errorf("category must belong to the same organization")
@@ -251,12 +264,26 @@ func (s *ProductService) UpdateProduct(ctx context.Context, id primitive.ObjectI
 				return nil, err
 			}
 			if category == nil {
-				return nil, fmt.Errorf("category not found")
+				// Try to find if this is a subcategory ID
+				parentCategory, err := s.categoryRepo.FindParentBySubcategoryID(ctx, catID)
+				if err != nil {
+					return nil, err
+				}
+				if parentCategory != nil {
+					// User passed a subcategory ID as category ID
+					existing.SubcategoryID = catID
+					catID = parentCategory.ID
+					category = parentCategory
+				} else {
+					return nil, fmt.Errorf("category not found")
+				}
 			}
 			if category.OrganizationID != existing.OrganizationID {
 				return nil, fmt.Errorf("category must belong to the same organization")
 			}
+			existing.CategoryID = catID
 		}
+	}
 	}
 
 	// Validate subcategory if provided
