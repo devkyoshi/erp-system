@@ -195,7 +195,7 @@ func (s *ProductService) GetProduct(ctx context.Context, id primitive.ObjectID, 
 }
 
 // ListProducts retrieves products with filters
-func (s *ProductService) ListProducts(ctx context.Context, orgID primitive.ObjectID, filters map[string]interface{}, page, limit int) ([]*models.Product, int64, error) {
+func (s *ProductService) ListProducts(ctx context.Context, orgID primitive.ObjectID, filters map[string]interface{}, page, limit int) ([]*ProductListItemResponse, int64, error) {
 	// Verify organization exists
 	exists, err := s.orgRepo.Exists(ctx, orgID)
 	if err != nil {
@@ -217,8 +217,15 @@ func (s *ProductService) ListProducts(ctx context.Context, orgID primitive.Objec
 		}
 	}
 
-	return products, total, nil
+	// Populate categories and subcategories
+	responses, err := s.populateCategories(ctx, products)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return responses, total, nil
 }
+
 
 // UpdateProduct updates an existing product
 func (s *ProductService) UpdateProduct(ctx context.Context, id primitive.ObjectID, req UpdateProductRequest, userOrgID primitive.ObjectID) (*models.Product, error) {
@@ -573,10 +580,33 @@ type ProductFilter struct {
 	Limit          int
 }
 
+
 type ProductDetailResponse struct {
 	models.Product
 	Category *models.ProductCategory `json:"category,omitempty"`
 }
+
+// CategoryInfo represents simplified category information for list responses
+type CategoryInfo struct {
+	ID   primitive.ObjectID `json:"id"`
+	Name string             `json:"name"`
+	Code string             `json:"code"`
+}
+
+// SubcategoryInfo represents simplified subcategory information for list responses
+type SubcategoryInfo struct {
+	ID   primitive.ObjectID `json:"id"`
+	Name string             `json:"name"`
+	Code string             `json:"code"`
+}
+
+// ProductListItemResponse extends Product with category and subcategory details
+type ProductListItemResponse struct {
+	models.Product
+	Category    *CategoryInfo    `json:"category,omitempty"`
+	Subcategory *SubcategoryInfo `json:"subcategory,omitempty"`
+}
+
 
 type ProductResponse struct {
 	ID             primitive.ObjectID   `json:"id"`
@@ -1026,4 +1056,74 @@ func (s *ProductService) populateUnits(ctx context.Context, product *models.Prod
 	}
 
 	return nil
+}
+
+// Helper: populateCategories fetches and attaches category and subcategory details to products
+func (s *ProductService) populateCategories(ctx context.Context, products []*models.Product) ([]*ProductListItemResponse, error) {
+	if len(products) == 0 {
+		return []*ProductListItemResponse{}, nil
+	}
+
+	// Collect unique category IDs
+	categoryIDs := make([]primitive.ObjectID, 0)
+	categoryIDMap := make(map[primitive.ObjectID]bool)
+
+	for _, product := range products {
+		if !product.CategoryID.IsZero() && !categoryIDMap[product.CategoryID] {
+			categoryIDs = append(categoryIDs, product.CategoryID)
+			categoryIDMap[product.CategoryID] = true
+		}
+	}
+
+	// Fetch all categories in one query
+	categoriesMap := make(map[primitive.ObjectID]*models.ProductCategory)
+	if len(categoryIDs) > 0 {
+		for _, catID := range categoryIDs {
+			category, err := s.categoryRepo.FindByID(ctx, catID)
+			if err != nil {
+				fmt.Printf("Warning: could not fetch category %s: %v\n", catID.Hex(), err)
+				continue
+			}
+			if category != nil {
+				categoriesMap[catID] = category
+			}
+		}
+	}
+
+	// Build response with category and subcategory details
+	responses := make([]*ProductListItemResponse, 0, len(products))
+	for _, product := range products {
+		response := &ProductListItemResponse{
+			Product: *product,
+		}
+
+		// Add category info if exists
+		if !product.CategoryID.IsZero() {
+			if category, ok := categoriesMap[product.CategoryID]; ok {
+				response.Category = &CategoryInfo{
+					ID:   category.ID,
+					Name: category.Name,
+					Code: category.Code,
+				}
+
+				// Add subcategory info if exists
+				if !product.SubcategoryID.IsZero() {
+					for _, subcat := range category.Subcategories {
+						if subcat.ID == product.SubcategoryID && subcat.DeletedAt == nil {
+							response.Subcategory = &SubcategoryInfo{
+								ID:   subcat.ID,
+								Name: subcat.Name,
+								Code: subcat.Code,
+							}
+							break
+						}
+					}
+				}
+			}
+		}
+
+		responses = append(responses, response)
+	}
+
+	return responses, nil
 }
