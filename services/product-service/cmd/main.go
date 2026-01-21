@@ -57,9 +57,10 @@ func main() {
 	categoryRepo := repository.NewCategoryRepository(mongoDB.Database)
 	orgRepo := repository.NewOrganizationRepository(mongoDB.Database)
 	unitRepo := repository.NewUnitRepository(mongoDB.Database)
+	stockRepo := repository.NewStockLevelRepository(mongoDB.Database)
 
 	// Initialize services
-	productService := service.NewProductService(productRepo, categoryRepo, brandRepo, orgRepo, unitRepo)
+	productService := service.NewProductService(productRepo, categoryRepo, brandRepo, orgRepo, unitRepo, stockRepo)
 	brandService := service.NewBrandService(brandRepo, orgRepo)
 	categoryService := service.NewCategoryService(categoryRepo, orgRepo)
 	unitService := service.NewUnitService(unitRepo)

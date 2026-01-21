@@ -17,6 +17,7 @@ type ProductService struct {
 	brandRepo    *repository.BrandRepository
 	orgRepo      *repository.OrganizationRepository
 	unitRepo     *repository.UnitRepository
+	stockRepo    *repository.StockLevelRepository
 }
 
 func NewProductService(
@@ -25,6 +26,7 @@ func NewProductService(
 	brandRepo *repository.BrandRepository,
 	orgRepo *repository.OrganizationRepository,
 	unitRepo *repository.UnitRepository,
+	stockRepo *repository.StockLevelRepository,
 ) *ProductService {
 	return &ProductService{
 		productRepo:  productRepo,
@@ -32,6 +34,7 @@ func NewProductService(
 		brandRepo:    brandRepo,
 		orgRepo:      orgRepo,
 		unitRepo:     unitRepo,
+		stockRepo:    stockRepo,
 	}
 }
 
@@ -612,36 +615,45 @@ type BrandInfo struct {
 // LocationPriceResponse wraps LocationPrice to hide unit ID fields in JSON
 type LocationPriceResponse struct {
 	models.LocationPrice
+	CurrentStock   float64 `json:"current_stock"`
+	AvailableStock float64 `json:"available_stock"`
+	AllocatedStock float64 `json:"allocated_stock"`
 }
 
 // MarshalJSON customizes JSON output to exclude unit ID fields
 func (lp *LocationPriceResponse) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
-		LocationID     primitive.ObjectID `json:"location_id"`
-		LocationName   string             `json:"location_name,omitempty"`
-		PurchaseUnit   *models.Unit       `json:"purchase_unit,omitempty"`
-		SellingUnit    *models.Unit       `json:"selling_unit,omitempty"`
-		CostPrice      float64            `json:"cost_price"`
-		SellingPrice   float64            `json:"selling_price"`
-		MRP            float64            `json:"mrp"`
-		InitialStock   float64            `json:"initial_stock"`
-		Currency       string             `json:"currency"`
-		IsActive       bool               `json:"is_active"`
-		CreatedAt      int64              `json:"created_at"`
-		ModifiedAt     int64              `json:"modified_at"`
+		LocationID        primitive.ObjectID `json:"location_id"`
+		LocationName      string             `json:"location_name,omitempty"`
+		PurchaseUnit      *models.Unit       `json:"purchase_unit,omitempty"`
+		SellingUnit       *models.Unit       `json:"selling_unit,omitempty"`
+		CostPrice         float64            `json:"cost_price"`
+		SellingPrice      float64            `json:"selling_price"`
+		MRP               float64            `json:"mrp"`
+		InitialStock      float64            `json:"initial_stock"`
+		CurrentStock      float64            `json:"current_stock"`
+		AvailableStock    float64            `json:"available_stock"`
+		AllocatedStock    float64            `json:"allocated_stock"`
+		Currency          string             `json:"currency"`
+		IsActive          bool               `json:"is_active"`
+		CreatedAt         int64              `json:"created_at"`
+		ModifiedAt        int64              `json:"modified_at"`
 	}{
-		LocationID:   lp.LocationID,
-		LocationName: lp.LocationName,
-		PurchaseUnit: lp.PurchaseUnit,
-		SellingUnit:  lp.SellingUnit,
-		CostPrice:    lp.CostPrice,
-		SellingPrice: lp.SellingPrice,
-		MRP:          lp.MRP,
-		InitialStock: lp.InitialStock,
-		Currency:     lp.Currency,
-		IsActive:     lp.IsActive,
-		CreatedAt:    lp.CreatedAt,
-		ModifiedAt:   lp.ModifiedAt,
+		LocationID:     lp.LocationID,
+		LocationName:   lp.LocationName,
+		PurchaseUnit:   lp.PurchaseUnit,
+		SellingUnit:    lp.SellingUnit,
+		CostPrice:      lp.CostPrice,
+		SellingPrice:   lp.SellingPrice,
+		MRP:            lp.MRP,
+		InitialStock:   lp.InitialStock,
+		CurrentStock:   lp.CurrentStock,
+		AvailableStock: lp.AvailableStock,
+		AllocatedStock: lp.AllocatedStock,
+		Currency:       lp.Currency,
+		IsActive:       lp.IsActive,
+		CreatedAt:      lp.CreatedAt,
+		ModifiedAt:     lp.ModifiedAt,
 	})
 }
 
@@ -1192,16 +1204,36 @@ func (s *ProductService) populateCategories(ctx context.Context, products []*mod
 		}
 	}
 	
+	// Collect unique product IDs for stock fetching
+	productIDs := make([]primitive.ObjectID, 0, len(products))
+	for _, product := range products {
+		productIDs = append(productIDs, product.ID)
+	}
+	
+	// Fetch stock levels for all products
+	stockMap, err := s.stockRepo.FindByProducts(ctx, productIDs)
+	if err != nil {
+		fmt.Printf("Warning: could not fetch stock levels: %v\n", err)
+		stockMap = make(map[string]*models.StockLevel) // Continue with empty map
+	}
 	
 	for _, product := range products {
 		response := &ProductListItemResponse{
 			Product: *product,
 		}
 		
-		// Convert location prices to response type
+		// Convert location prices to response type and populate stock
 		locationPrices := make([]LocationPriceResponse, len(product.LocationPrices))
 		for i, lp := range product.LocationPrices {
 			locationPrices[i] = LocationPriceResponse{LocationPrice: lp}
+			
+			// Populate stock levels for this location
+			stockKey := product.ID.Hex() + "_" + lp.LocationID.Hex()
+			if stock, ok := stockMap[stockKey]; ok {
+				locationPrices[i].CurrentStock = stock.QuantityOnHand
+				locationPrices[i].AvailableStock = stock.QuantityAvailable
+				locationPrices[i].AllocatedStock = stock.QuantityAllocated
+			}
 		}
 		response.LocationPrices = locationPrices
 
