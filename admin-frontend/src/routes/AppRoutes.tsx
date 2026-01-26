@@ -24,6 +24,8 @@ import { ProductsPage } from "@/pages/products/Products";
 import { ProductFormPage } from "@/pages/products/ProductForm";
 import { CategoriesPage } from "@/pages/categories/CategoryList";
 import { CategoryFormPage } from "@/pages/categories/CategoryForm";
+import { BrandsPage } from "@/pages/brands/BrandList";
+import { BrandFormPage } from "@/pages/brands/BrandForm";
 
 export function AppRoutes() {
   return (
@@ -62,6 +64,10 @@ export function AppRoutes() {
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="categories/new" element={<CategoryFormPage />} />
         <Route path="categories/:id/edit" element={<CategoryFormPage />} />
+
+        <Route path="brands" element={<BrandsPage />} />
+        <Route path="brands/new" element={<BrandFormPage />} />
+        <Route path="brands/:id/edit" element={<BrandFormPage />} />
 
         <Route path="transactions" element={<TransactionsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />

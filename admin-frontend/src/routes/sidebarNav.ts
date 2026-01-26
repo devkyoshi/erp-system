@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Package,
   Layers,
+  Tag,
 } from "lucide-react";
 
 export type SidebarNavItem = {
@@ -26,6 +27,7 @@ export const SIDEBAR_NAV: SidebarNavItem[] = [
   { label: "Orders", to: "/app/orders", icon: ShoppingBag, badge: "12" },
   { label: "Products", to: "/app/products", icon: Package },
   { label: "Categories", to: "/app/categories", icon: Layers },
+  { label: "Brands", to: "/app/brands", icon: Tag },
   { label: "Inventory", to: "/app/inventory", icon: Boxes, badge: "3" },
   { label: "Users", to: "/app/users", icon: Users },
   { label: "Settings", to: "/app/settings", icon: Settings },

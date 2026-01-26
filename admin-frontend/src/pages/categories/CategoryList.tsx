@@ -19,13 +19,23 @@ import {
   ChevronRight,
   ChevronDown,
   Layers,
+  Loader2,
 } from "lucide-react";
 import { categoryService } from "@/services/category.service";
 import { Category } from "@/types/category.types";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/sonner";
 import { useNavigate } from "react-router-dom";
-
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function CategoriesPage() {
   const navigate = useNavigate();
@@ -38,6 +48,7 @@ export function CategoriesPage() {
   const [expandedCategories, setExpandedCategories] = useState<
     Record<string, boolean>
   >({});
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const limit = 10;
 
   useEffect(() => {
@@ -76,22 +87,22 @@ export function CategoriesPage() {
     fetchCategories();
   };
 
-  const handleDelete = async (categoryId: string) => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this category? All subcategories will also be deleted.",
-      )
-    )
-      return;
+  const confirmDelete = async () => {
+    if (!deleteId) return;
 
     try {
-      await categoryService.deleteCategory(categoryId);
+      await categoryService.deleteCategory(deleteId);
       toast.success("Category deleted successfully");
       fetchCategories();
     } catch (error: any) {
       toast.error("Failed to delete category", {
-        description: error.response?.data?.message || "Please try again later",
+        description:
+          error.response?.data?.error?.message ||
+          error.response?.data?.message ||
+          "Please try again later",
       });
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -164,7 +175,10 @@ export function CategoriesPage() {
                   colSpan={5}
                   className="text-center py-8 text-muted-foreground"
                 >
-                  Loading categories...
+                  <div className="flex justify-center items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading categories...
+                  </div>
                 </TableCell>
               </TableRow>
             ) : categories.length === 0 ? (
@@ -246,7 +260,7 @@ export function CategoriesPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(category.id)}
+                          onClick={() => setDeleteId(category.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -285,7 +299,7 @@ export function CategoriesPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {/* Subcategory actions could go here, but usually managed via parent edit */}
+                          {/* Subcategory actions */}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -323,6 +337,30 @@ export function CategoriesPage() {
           </div>
         )}
       </div>
+
+      <AlertDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              category and its subcategories.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
