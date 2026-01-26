@@ -20,6 +20,10 @@ import { SettingsPage } from "@/pages/settings/Settings";
 import { ProfileSettings } from "@/pages/settings/ProfileSettings";
 import { UserRoleList } from "@/pages/users/UserRoleList";
 import { UserRoleFormPage } from "@/pages/users/UserRoleFormPage";
+import { ProductsPage } from "@/pages/products/Products";
+import { ProductFormPage } from "@/pages/products/ProductForm";
+import { CategoriesPage } from "@/pages/categories/CategoryList";
+import { CategoryFormPage } from "@/pages/categories/CategoryForm";
 
 export function AppRoutes() {
   return (
@@ -50,6 +54,15 @@ export function AppRoutes() {
         <Route path="users/roles" element={<UserRoleList />} />
         <Route path="users/roles/new" element={<UserRoleFormPage />} />
         <Route path="users/roles/:id/edit" element={<UserRoleFormPage />} />
+
+        <Route path="products" element={<ProductsPage />} />
+        <Route path="products/new" element={<ProductFormPage />} />
+        <Route path="products/:id/edit" element={<ProductFormPage />} />
+
+        <Route path="categories" element={<CategoriesPage />} />
+        <Route path="categories/new" element={<CategoryFormPage />} />
+        <Route path="categories/:id/edit" element={<CategoryFormPage />} />
+
         <Route path="transactions" element={<TransactionsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="settings" element={<SettingsPage />} />
