@@ -218,9 +218,50 @@ export interface ProductFilters {
   limit?: number;
 }
 
+// ... (previous content)
+
 export interface ProductListResponse {
   data: Product[];
   page: number;
   limit: number;
   total: number;
+}
+
+export interface Unit {
+  id: string;
+  name: string;
+  symbol: string;
+  type: string; // e.g. mass, volume, length
+  base_unit: boolean;
+  conversion_factor: number;
+}
+
+export interface Location {
+  id: string;
+  organization_id: string;
+  company_id: string;
+  name: string;
+  code: string;
+  type: string;
+  address?: {
+    street: string;
+    city: string;
+    state: string;
+    country: string;
+    postal_code: string;
+  };
+  is_active: boolean;
+}
+
+export interface LocationPriceRequest {
+  location_id: string;
+  location_name?: string;
+  purchase_unit_id?: string;
+  selling_unit_id?: string;
+  cost_price: number;
+  selling_price: number;
+  mrp: number;
+  initial_stock?: number;
+  currency: string;
+  is_active: boolean;
 }

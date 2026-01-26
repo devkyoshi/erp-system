@@ -6,3 +6,15 @@ export interface ApiResponse<T = any> {
   error?: string;
   code?: string;
 }
+
+export interface PaginatedData<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+  };
+}
+
+export interface PaginatedResponse<T> extends ApiResponse<PaginatedData<T>> {}

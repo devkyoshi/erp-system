@@ -26,6 +26,9 @@ import { CategoriesPage } from "@/pages/categories/CategoryList";
 import { CategoryFormPage } from "@/pages/categories/CategoryForm";
 import { BrandsPage } from "@/pages/brands/BrandList";
 import { BrandFormPage } from "@/pages/brands/BrandForm";
+import CompanyList from "@/pages/settings/companies/CompanyList";
+import CompanyDetail from "@/pages/settings/companies/CompanyDetail";
+
 
 export function AppRoutes() {
   return (
@@ -72,6 +75,8 @@ export function AppRoutes() {
         <Route path="transactions" element={<TransactionsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="companies" element={<CompanyList />} />
+        <Route path="companies/:id" element={<CompanyDetail />} />
         <Route path="profile" element={<ProfileSettings />} />
         <Route index element={<Navigate to="/app/dashboard" replace />} />
       </Route>

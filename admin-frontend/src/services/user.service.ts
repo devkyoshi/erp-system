@@ -46,6 +46,7 @@ class UserService {
       search?: string;
       role?: string;
       status?: string;
+      company_id?: string;
     },
   ): Promise<GetUsersResponse> {
     const response = await axiosInstance.get<GetUsersResponse>(
