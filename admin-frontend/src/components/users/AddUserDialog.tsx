@@ -24,6 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { authService } from "@/services/auth.service";
+import { roleService } from "@/services/role.service";
+import { Role } from "@/types/role.types"; // Correct import path
 import {
   organizationService,
   OrganizationOption,
@@ -32,6 +34,7 @@ import {
 const formSchema = z
   .object({
     organization_id: z.string().min(1, "Organization is required"),
+    role_id: z.string().min(1, "Role is required"),
     first_name: z.string().min(2, "First name must be at least 2 characters"),
     last_name: z.string().min(2, "Last name must be at least 2 characters"),
     email: z.string().email("Invalid email address"),
@@ -57,11 +60,13 @@ export function AddUserDialog({
 }: AddUserDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [organizations, setOrganizations] = useState<OrganizationOption[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       organization_id: "",
+      role_id: "",
       first_name: "",
       last_name: "",
       email: "",
@@ -74,9 +79,12 @@ export function AddUserDialog({
   useEffect(() => {
     if (open) {
       fetchOrganizations();
+      // Fetch roles initially or wait for org selection
+      fetchRoles();
       form.reset();
     }
   }, [open]);
+
   const fetchOrganizations = async () => {
     try {
       const orgs = await organizationService.getOrganizations();
@@ -87,11 +95,29 @@ export function AddUserDialog({
     }
   };
 
+  const fetchRoles = async (orgId?: string) => {
+    try {
+      const fetchedRoles = await roleService.getRoles(orgId);
+      setRoles(fetchedRoles);
+    } catch (error) {
+      console.error("Failed to fetch roles:", error);
+      toast.error("Failed to load roles");
+    }
+  };
+
+  // Watch organization_id to fetch roles
+  const selectedOrgId = form.watch("organization_id");
+  useEffect(() => {
+    if (selectedOrgId) {
+      fetchRoles(selectedOrgId);
+    }
+  }, [selectedOrgId]);
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsLoading(true);
 
-      await authService.adminCreateUser({
+      const response = await authService.adminCreateUser({
         email: values.email,
         password: values.password,
         first_name: values.first_name,
@@ -99,6 +125,10 @@ export function AddUserDialog({
         phone: values.phone || "",
         organization_id: values.organization_id,
       });
+
+      if (response && response.user && response.user.id) {
+        await roleService.assignRole(response.user.id, values.role_id);
+      }
 
       toast.success("User created successfully");
       onSuccess();
@@ -141,6 +171,34 @@ export function AddUserDialog({
                     {(organizations || []).map((org) => (
                       <SelectItem key={org.id} value={org.id}>
                         {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="role_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Role</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {(roles || []).map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.display_name}
                       </SelectItem>
                     ))}
                   </SelectContent>

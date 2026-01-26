@@ -18,6 +18,8 @@ import { TransactionsPage } from "@/pages/dashboard/Transactions";
 import { AnalyticsPage } from "@/pages/dashboard/Analytics";
 import { SettingsPage } from "@/pages/settings/Settings";
 import { ProfileSettings } from "@/pages/settings/ProfileSettings";
+import { UserRoleList } from "@/pages/users/UserRoleList";
+import { UserRoleFormPage } from "@/pages/users/UserRoleFormPage";
 
 export function AppRoutes() {
   return (
@@ -33,7 +35,7 @@ export function AppRoutes() {
       <Route
         path="/app"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requiredRole="ADMIN">
             <DashboardLayout />
           </ProtectedRoute>
         }
@@ -45,6 +47,9 @@ export function AppRoutes() {
         <Route path="calendar" element={<CalendarPage />} />
 
         <Route path="users" element={<UsersPage />} />
+        <Route path="users/roles" element={<UserRoleList />} />
+        <Route path="users/roles/new" element={<UserRoleFormPage />} />
+        <Route path="users/roles/:id/edit" element={<UserRoleFormPage />} />
         <Route path="transactions" element={<TransactionsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="settings" element={<SettingsPage />} />

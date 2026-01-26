@@ -28,16 +28,21 @@ import {
   Activity,
 } from "lucide-react";
 import { userService, User } from "@/services/user.service";
+import { roleService } from "@/services/role.service";
+import { Role } from "@/types/role.types";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
 
-// ... imports ...
 import { AddUserDialog } from "@/components/users/AddUserDialog";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export function UsersPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]); // State for roles
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -50,6 +55,27 @@ export function UsersPage() {
       fetchUsers();
     }
   }, [user?.organization_id, roleFilter, statusFilter, dateFilter]);
+
+  useEffect(() => {
+    if (user?.organization_id) {
+      fetchUsers();
+      fetchRoles(); // Fetch roles
+    }
+  }, [user?.organization_id, roleFilter, statusFilter, dateFilter]);
+
+  const fetchRoles = async () => {
+    if (!user?.organization_id) return;
+    try {
+      const fetchedRoles = await roleService.getRoles(user.organization_id);
+      if (Array.isArray(fetchedRoles)) {
+        setRoles(fetchedRoles);
+      } else {
+        setRoles([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch roles:", error);
+    }
+  };
 
   const fetchUsers = async () => {
     if (!user?.organization_id) return;
@@ -127,6 +153,12 @@ export function UsersPage() {
     return colors[Math.abs(hash) % colors.length];
   };
 
+  const getRoleName = (roleId: string) => {
+    if (!Array.isArray(roles)) return "Unknown Role";
+    const role = roles.find((r) => r.id === roleId);
+    return role ? role.display_name : "Unknown Role";
+  };
+
   return (
     <div className="space-y-6">
       <AddUserDialog
@@ -141,9 +173,30 @@ export function UsersPage() {
           User Management
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Manage all users in one place. Control access, assign roles, and
-          monitor activity across your platform.
+          Manage all users and roles in one place. Control access, assign roles,
+          and monitor activity across your platform.
         </p>
+      </div>
+
+      <div className="flex space-x-4 border-b">
+        <Button
+          variant={location.pathname === "/app/users" ? "secondary" : "ghost"}
+          className="rounded-none border-b-2 border-transparent px-4 py-2 hover:bg-transparent hover:text-foreground data-[state=active]:border-primary"
+          onClick={() => navigate("/app/users")}
+        >
+          Users
+        </Button>
+        <Button
+          variant={
+            location.pathname.includes("/app/users/roles")
+              ? "secondary"
+              : "ghost"
+          }
+          className="rounded-none border-b-2 border-transparent px-4 py-2 hover:bg-transparent hover:text-foreground data-[state=active]:border-primary"
+          onClick={() => navigate("/app/users/roles")}
+        >
+          Roles
+        </Button>
       </div>
 
       {/* Filter Section */}
@@ -240,9 +293,9 @@ export function UsersPage() {
             <TableRow>
               <TableHead>Full Name</TableHead>
               <TableHead>Email Address</TableHead>
+              <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Join Date</TableHead>
-              <TableHead>Last Active</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -280,6 +333,9 @@ export function UsersPage() {
                   </TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
+                    <Badge variant="outline">{getRoleName(user.role_id)}</Badge>
+                  </TableCell>
+                  <TableCell>
                     <Badge
                       variant={user.is_active ? "default" : "secondary"}
                       className={
@@ -292,7 +348,7 @@ export function UsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>{formatDate(user.created_at)}</TableCell>
-                  <TableCell>{formatDate(user.last_login_at)}</TableCell>
+
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button

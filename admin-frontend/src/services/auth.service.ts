@@ -8,6 +8,7 @@ import {
   UpdateProfileRequest,
   ChangePasswordRequest,
   User,
+  Role,
 } from "@/types/auth.types";
 import { ApiResponse } from "@/types/global.types";
 
@@ -41,6 +42,11 @@ class AuthService {
       }
     }
 
+    // Store role data
+    if (authData.role) {
+      localStorage.setItem("role", JSON.stringify(authData.role));
+    }
+
     return authData;
   }
 
@@ -67,6 +73,9 @@ class AuthService {
       if (authData.user.organization_id) {
         localStorage.setItem("organizationId", authData.user.organization_id);
       }
+    }
+    if (authData.role) {
+      localStorage.setItem("role", JSON.stringify(authData.role));
     }
 
     return authData;
@@ -102,6 +111,7 @@ class AuthService {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
+      localStorage.removeItem("role");
       localStorage.removeItem("organizationId");
     }
   }
@@ -130,19 +140,27 @@ class AuthService {
   }
 
   /**
-   * Get current user profile
+   * Get current user profile with role
    */
-  async getCurrentUser(): Promise<User> {
-    const response = await axiosInstance.get<ApiResponse<User>>("/auth/me");
+  async getCurrentUser(): Promise<{ user: User; role?: Role }> {
+    const response =
+      await axiosInstance.get<ApiResponse<{ user: User; role?: Role }>>(
+        "/auth/me",
+      );
 
-    const user = response.data.data;
+    const data = response.data.data;
 
     // Update stored user data
-    if (user) {
-      localStorage.setItem("user", JSON.stringify(user));
+    if (data.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
     }
 
-    return user;
+    // Update stored role data
+    if (data.role) {
+      localStorage.setItem("role", JSON.stringify(data.role));
+    }
+
+    return data;
   }
 
   /**
@@ -156,6 +174,21 @@ class AuthService {
       return JSON.parse(userStr) as User;
     } catch (error) {
       console.error("Error parsing stored user:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get stored role from localStorage
+   */
+  getStoredRole(): Role | null {
+    const roleStr = localStorage.getItem("role");
+    if (!roleStr) return null;
+
+    try {
+      return JSON.parse(roleStr) as Role;
+    } catch (error) {
+      console.error("Error parsing stored role:", error);
       return null;
     }
   }

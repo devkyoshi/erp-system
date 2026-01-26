@@ -10,6 +10,7 @@ import { AuthContextType, AuthState, User } from "@/types/auth.types";
 
 const initialState: AuthState = {
   user: null,
+  role: null,
   accessToken: null,
   refreshToken: null,
   isAuthenticated: false,
@@ -31,15 +32,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const initializeAuth = async () => {
       try {
         const storedUser = authService.getStoredUser();
+        const storedRole = authService.getStoredRole();
         const accessToken = authService.getAccessToken();
         const refreshToken = authService.getRefreshToken();
 
         if (storedUser && accessToken) {
           // Try to fetch fresh user data
           try {
-            const user = await authService.getCurrentUser();
+            const data = await authService.getCurrentUser();
             setState({
-              user,
+              user: data.user,
+              role: data.role || null,
               accessToken,
               refreshToken,
               isAuthenticated: true,
@@ -47,9 +50,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
               error: null,
             });
           } catch (error) {
-            // If fetching user fails, use stored user
+            // If fetching user fails, use stored user and role
             setState({
               user: storedUser,
+              role: storedRole,
               accessToken,
               refreshToken,
               isAuthenticated: true,
@@ -84,6 +88,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       setState({
         user: response.user,
+        role: response.role || null,
         accessToken: response.access_token,
         refreshToken: response.refresh_token,
         isAuthenticated: true,
@@ -128,6 +133,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       setState((prev) => ({
         ...prev,
+        user: response.user,
+        role: response.role || prev.role,
         accessToken: response.access_token,
         refreshToken: response.refresh_token,
       }));
@@ -139,11 +146,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const hasRole = (roleName: string): boolean => {
+    return state.role?.name === roleName;
+  };
+
+  const hasPermission = (permission: string): boolean => {
+    return state.role?.permissions?.includes(permission) || false;
+  };
+
   const value: AuthContextType = {
     ...state,
     login,
     logout,
     refreshAccessToken,
+    hasRole,
+    hasPermission,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,5 +1,11 @@
 // Authentication related types and interfaces
 
+export interface Role {
+  id: string;
+  name: string;
+  permissions: string[];
+}
+
 export interface User {
   id: string;
   organization_id?: string;
@@ -26,6 +32,7 @@ export interface LoginResponse {
   access_token: string;
   refresh_token: string;
   user: User;
+  role?: Role;
 }
 
 export interface RefreshTokenRequest {
@@ -36,6 +43,7 @@ export interface RefreshTokenResponse {
   access_token: string;
   refresh_token: string;
   user: User;
+  role?: Role;
 }
 
 export interface RegisterRequest {
@@ -49,6 +57,7 @@ export interface RegisterRequest {
 
 export interface AuthState {
   user: User | null;
+  role: Role | null;
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
@@ -60,6 +69,8 @@ export interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshAccessToken: () => Promise<void>;
+  hasRole: (roleName: string) => boolean;
+  hasPermission: (permission: string) => boolean;
 }
 
 export interface UpdateProfileRequest {
