@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -36,6 +36,7 @@ import {
 
 import { categoryService } from "@/services/category.service";
 import { useAuth } from "@/contexts/AuthContext";
+import { Category } from "@/types/category.types";
 
 const subcategorySchema = z.object({
   id: z.string().optional(),
@@ -61,6 +62,9 @@ export function CategoryFormPage() {
   const isEditMode = !!id;
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditMode);
+
+  // Store original category data to calculate diffs for updates
+  const originalCategoryRef = useRef<Category | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -88,6 +92,7 @@ export function CategoryFormPage() {
     try {
       setIsFetching(true);
       const category = await categoryService.getCategory(categoryId);
+      originalCategoryRef.current = category;
 
       // Transform subcategories to match form shape
       const subcategories =
@@ -121,20 +126,85 @@ export function CategoryFormPage() {
       setIsLoading(true);
 
       if (isEditMode && id) {
-        // Explicitly cast to ensure types match for UpdateCategoryRequest
+        // Calculate subcategory changes
+        const currentSubcategories = values.subcategories || [];
+        const originalSubcategories =
+          originalCategoryRef.current?.subcategories || [];
+
+        // 1. Identify Removed Subcategories
+        // IDs present in original but NOT in current form values
+        const currentIds = new Set(
+          currentSubcategories.map((s) => s.id).filter(Boolean),
+        );
+        const removeSubcategories = originalSubcategories
+          .filter((s) => !currentIds.has(s.id))
+          .map((s) => s.id);
+
+        // 2. Identify Added Subcategories
+        // Items without IDs
+        const addSubcategories = currentSubcategories
+          .filter((s) => !s.id)
+          .map((s) => ({
+            name: s.name,
+            code: s.code,
+            is_active: s.is_active,
+          }));
+
+        // 3. Identify Updated Subcategories
+        // Items with IDs that have changed
+        const updateSubcategories = currentSubcategories
+          .filter((s) => s.id)
+          .map((s) => {
+            const original = originalSubcategories.find(
+              (orig) => orig.id === s.id,
+            );
+            if (!original) return null; // Should not happen
+
+            // Check if modified
+            const isModified =
+              original.name !== s.name ||
+              (original.code || "") !== (s.code || "") ||
+              original.is_active !== s.is_active;
+
+            if (isModified && s.id) {
+              return {
+                id: s.id,
+                name: s.name,
+                code: s.code,
+                is_active: s.is_active,
+              };
+            }
+            return null;
+          })
+          .filter((s): s is NonNullable<typeof s> => s !== null);
+
         const updateData: any = {
-          ...values,
-          subcategories: values.subcategories?.map((sub) => ({
-            ...(sub.id && { id: sub.id }),
-            name: sub.name,
-            code: sub.code,
-            is_active: sub.is_active,
-          })),
+          name: values.name,
+          code: values.code,
+          description: values.description,
+          is_active: values.is_active,
+          add_subcategories:
+            addSubcategories.length > 0 ? addSubcategories : undefined,
+          update_subcategories:
+            updateSubcategories.length > 0 ? updateSubcategories : undefined,
+          remove_subcategories:
+            removeSubcategories.length > 0 ? removeSubcategories : undefined,
         };
+
+        if (Object.keys(updateData).length === 0) {
+          toast.info("No changes detected");
+          navigate("/app/categories");
+          return;
+        }
+
+        // Don't send empty object if only name/etc didn't change but subcategories did
+        // Actually updateData contains all fields like name which are always sent or we can send optional
+        // In this implementation we sends name/code always. Backend handles it.
+
         await categoryService.updateCategory(id, updateData);
         toast.success("Category updated successfully");
       } else {
-        // Explicitly construct payload for CreateCategoryRequest
+        // Create Logic remains same
         const createData: any = {
           organization_id: user.organization_id,
           name: values.name,
