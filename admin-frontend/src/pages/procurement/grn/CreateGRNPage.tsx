@@ -5,7 +5,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { procurementService } from "@/services/procurement.service";
+import { locationService } from "@/services/location.service";
 import { PurchaseOrder } from "@/types/procurement.types";
+import { Location } from "@/types/product.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,13 +19,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarIcon, ArrowLeft, Save, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -38,6 +40,7 @@ import { useToast } from "@/components/ui/use-toast";
 // Schema
 const createGRNSchema = z.object({
   purchase_order_id: z.string().min(1, "Purchase Order ID is required"),
+  location_id: z.string().min(1, "Location is required"),
   receipt_date: z.date({
     required_error: "Receipt date is required",
   }),
@@ -67,6 +70,7 @@ export function CreateGRNPage() {
   const { toast } = useToast();
 
   const [po, setPo] = useState<PurchaseOrder | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -88,7 +92,19 @@ export function CreateGRNPage() {
     if (poId) {
       fetchPO(poId);
     }
-  }, [poId]);
+    if (user?.organization_id) {
+      fetchLocations(user.organization_id);
+    }
+  }, [poId, user?.organization_id]);
+
+  const fetchLocations = async (orgId: string) => {
+    try {
+      const locations = await locationService.getOrganizationLocations(orgId);
+      setLocations(locations || []);
+    } catch (error) {
+      console.error("Failed to fetch locations", error);
+    }
+  };
 
   const fetchPO = async (id: string) => {
     try {
@@ -96,6 +112,10 @@ export function CreateGRNPage() {
       const data = await procurementService.getPurchaseOrder(id);
       setPo(data);
       form.setValue("purchase_order_id", data.id);
+      // Pre-fill location if PO has delivery location
+      if (data.delivery_location_id) {
+        form.setValue("location_id", data.delivery_location_id);
+      }
 
       // Pre-fill items
       const grnItems = data.items.map((item) => ({
@@ -128,6 +148,7 @@ export function CreateGRNPage() {
 
       const payload = {
         purchase_order_id: values.purchase_order_id,
+        location_id: values.location_id,
         receipt_date: values.receipt_date.toISOString(),
         notes: values.notes,
         items: values.items.map((item) => ({
@@ -136,9 +157,6 @@ export function CreateGRNPage() {
           received_quantity: Number(item.received_quantity),
           batch_number: item.batch_number,
           ...(item.expiry_date ? { expiry_date: item.expiry_date } : {}),
-          // include other fields if backend requires or for reference?
-          // Backend expects GRNItem which has accepted/rejected etc.
-          // For create, we mainly care about received qty.
         })),
       };
 
@@ -255,7 +273,6 @@ export function CreateGRNPage() {
                               </FormItem>
                             )}
                           />
-                          {/* Expiry Date could be added here similar to DatePicker */}
                         </div>
                       </div>
                     ))}
@@ -270,6 +287,35 @@ export function CreateGRNPage() {
                   <CardTitle>Receipt Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="location_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Receiving Location</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select location" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {locations.map((loc) => (
+                              <SelectItem key={loc.id} value={loc.id}>
+                                {loc.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <FormField
                     control={form.control}
                     name="receipt_date"

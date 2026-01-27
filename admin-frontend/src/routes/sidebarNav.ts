@@ -46,7 +46,24 @@ export const SIDEBAR_NAV: SidebarNavItem[] = [
       },
     ],
   },
-  { label: "Inventory", to: "/app/inventory", icon: Boxes, badge: "3" },
+  {
+    label: "Inventory",
+    to: "/app/inventory",
+    icon: Boxes,
+    submenu: [
+      { label: "Stock Levels", to: "/app/inventory", icon: Boxes },
+      {
+        label: "Adjustments",
+        to: "/app/inventory/adjustments",
+        icon: FileText,
+      },
+      {
+        label: "Movements",
+        to: "/app/inventory/movements",
+        icon: ArrowRightLeft,
+      },
+    ],
+  },
   {
     label: "Settings",
     to: "/app/settings",

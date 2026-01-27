@@ -173,6 +173,7 @@ export interface GoodsReceiptNote {
 
 export interface CreateGRNRequest {
   purchase_order_id: string;
+  location_id: string;
   receipt_date: string;
   items: GRNItem[];
   notes?: string;
