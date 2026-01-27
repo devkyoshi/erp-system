@@ -28,7 +28,8 @@ import { BrandsPage } from "@/pages/brands/BrandList";
 import { BrandFormPage } from "@/pages/brands/BrandForm";
 import CompanyList from "@/pages/settings/companies/CompanyList";
 import CompanyDetail from "@/pages/settings/companies/CompanyDetail";
-
+import UnitList from "@/pages/settings/units/UnitList";
+import UnitChartList from "@/pages/settings/unit-charts/UnitChartList";
 
 export function AppRoutes() {
   return (
@@ -75,6 +76,8 @@ export function AppRoutes() {
         <Route path="transactions" element={<TransactionsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="settings/units" element={<UnitList />} />
+        <Route path="settings/unit-charts" element={<UnitChartList />} />
         <Route path="companies" element={<CompanyList />} />
         <Route path="companies/:id" element={<CompanyDetail />} />
         <Route path="profile" element={<ProfileSettings />} />

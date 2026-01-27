@@ -1,8 +1,10 @@
 import { NavLink } from "@/components/NavLink";
-import { SIDEBAR_NAV } from "@/routes/sidebarNav";
+import { SIDEBAR_NAV, SidebarNavItem } from "@/routes/sidebarNav";
 import { cn } from "@/lib/utils";
-import { ShieldCheck, X } from "lucide-react";
+import { ShieldCheck, X, ChevronDown, ChevronRight } from "lucide-react";
 import { UserMenu } from "@/components/common/UserMenu";
+import { useState } from "react";
+import { useLocation } from "react-router-dom";
 
 interface DashboardSidebarProps {
   isOpen: boolean;
@@ -10,6 +12,85 @@ interface DashboardSidebarProps {
 }
 
 export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
+  const location = useLocation();
+  const [expandedItems, setExpandedItems] = useState<string[]>(["Settings"]);
+
+  const toggleExpand = (label: string) => {
+    setExpandedItems((prev) =>
+      prev.includes(label)
+        ? prev.filter((item) => item !== label)
+        : [...prev, label],
+    );
+  };
+
+  const renderNavItem = (item: SidebarNavItem, depth = 0) => {
+    const Icon = item.icon;
+    const isExpanded = expandedItems.includes(item.label);
+    const hasSubmenu = item.submenu && item.submenu.length > 0;
+    const isActive =
+      location.pathname === item.to ||
+      (hasSubmenu &&
+        item.submenu!.some((sub) => location.pathname.startsWith(sub.to)));
+
+    return (
+      <li key={item.to}>
+        {hasSubmenu ? (
+          <div>
+            <button
+              onClick={() => toggleExpand(item.label)}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                isActive
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+              )}
+              style={{ paddingLeft: `${12 + depth * 12}px` }}
+            >
+              <Icon className="h-4 w-4" />
+              <span className="flex-1 text-left">{item.label}</span>
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+            </button>
+            {isExpanded && (
+              <ul className="mt-1 space-y-1">
+                {item.submenu!.map((subItem) =>
+                  renderNavItem(subItem, depth + 1),
+                )}
+              </ul>
+            )}
+          </div>
+        ) : (
+          <NavLink
+            to={item.to}
+            onClick={onClose}
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors",
+              "hover:bg-muted/60 hover:text-foreground",
+            )}
+            activeClassName="bg-brand text-brand-foreground shadow-sm"
+            style={{ paddingLeft: `${12 + depth * 12}px` }}
+          >
+            <Icon className="h-4 w-4" />
+            <span className="flex-1">{item.label}</span>
+            {item.badge && (
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-xs",
+                  "bg-brand text-brand-foreground",
+                )}
+              >
+                {item.badge}
+              </span>
+            )}
+          </NavLink>
+        )}
+      </li>
+    );
+  };
+
   return (
     <>
       {/* Mobile overlay */}
@@ -48,37 +129,9 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
             </button>
           </div>
 
-          <nav className="px-3">
+          <nav className="flex-1 overflow-y-auto px-3">
             <ul className="space-y-1.5">
-              {SIDEBAR_NAV.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <li key={item.to}>
-                    <NavLink
-                      to={item.to}
-                      onClick={onClose}
-                      className={cn(
-                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors",
-                        "hover:bg-muted/60 hover:text-foreground",
-                      )}
-                      activeClassName="bg-brand text-brand-foreground shadow-sm"
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span className="flex-1">{item.label}</span>
-                      {item.badge && (
-                        <span
-                          className={cn(
-                            "rounded-full px-2 py-0.5 text-xs",
-                            "bg-brand text-brand-foreground",
-                          )}
-                        >
-                          {item.badge}
-                        </span>
-                      )}
-                    </NavLink>
-                  </li>
-                );
-              })}
+              {SIDEBAR_NAV.map((item) => renderNavItem(item))}
             </ul>
           </nav>
 

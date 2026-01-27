@@ -13,6 +13,8 @@ import {
   Layers,
   Tag,
   Building2,
+  Ruler,
+  ArrowRightLeft,
 } from "lucide-react";
 
 export type SidebarNavItem = {
@@ -20,6 +22,7 @@ export type SidebarNavItem = {
   to: string;
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
+  submenu?: SidebarNavItem[];
 };
 
 export const SIDEBAR_NAV: SidebarNavItem[] = [
@@ -32,5 +35,17 @@ export const SIDEBAR_NAV: SidebarNavItem[] = [
   { label: "Companies", to: "/app/companies", icon: Building2 },
   { label: "Inventory", to: "/app/inventory", icon: Boxes, badge: "3" },
   { label: "Users", to: "/app/users", icon: Users },
-  { label: "Settings", to: "/app/settings", icon: Settings },
+  {
+    label: "Settings",
+    to: "/app/settings",
+    icon: Settings,
+    submenu: [
+      { label: "Units", to: "/app/settings/units", icon: Ruler },
+      {
+        label: "Unit Conversions",
+        to: "/app/settings/unit-charts",
+        icon: ArrowRightLeft,
+      },
+    ],
+  },
 ];

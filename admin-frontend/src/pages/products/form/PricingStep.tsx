@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useFormContext, useFieldArray } from "react-hook-form";
 import {
   FormControl,
@@ -42,6 +43,7 @@ import { AddLocationPriceDialog } from "../dialogs/AddLocationPriceDialog";
 // ... existing imports
 
 export function PricingStep() {
+  const { user } = useAuth();
   const { control, watch, setValue } = useFormContext<ProductFormValues>();
   const { fields, append, remove } = useFieldArray({
     control,
@@ -74,7 +76,15 @@ export function PricingStep() {
   const fetchLocations = async () => {
     try {
       const data = await locationService.getUserLocations();
-      setAvailableLocations(data || []);
+
+      let filteredLocations = data || [];
+      if (user?.organization_id) {
+        filteredLocations = filteredLocations.filter(
+          (loc) => loc.organization_id === user.organization_id,
+        );
+      }
+
+      setAvailableLocations(filteredLocations);
     } catch (error) {
       console.error("Failed to fetch locations", error);
     }

@@ -229,11 +229,12 @@ export interface ProductListResponse {
 
 export interface Unit {
   id: string;
+  code: string;
   name: string;
   symbol: string;
-  type: string; // e.g. mass, volume, length
-  base_unit: boolean;
-  conversion_factor: number;
+  unit_type: string; // Changed from type
+  is_base_unit: boolean; // Changed from base_unit
+  is_active: boolean;
 }
 
 export interface Location {
