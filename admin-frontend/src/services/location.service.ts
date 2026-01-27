@@ -18,9 +18,11 @@ export interface CreateLocationRequest {
 }
 
 export interface UserAccessData {
-  locations: Location[];
-  organizations: any[];
-  companies: any[];
+  organization: any;
+  companies: {
+    company: any;
+    locations: Location[];
+  }[];
 }
 
 class LocationService {
@@ -30,7 +32,11 @@ class LocationService {
   async getUserLocations(): Promise<Location[]> {
     const response =
       await axiosInstance.get<ApiResponse<UserAccessData>>("/users/me/access");
-    return response.data.data.locations || [];
+
+    // Flatten locations from companies
+    const companies = response.data.data.companies || [];
+    const locations = companies.flatMap((c) => c.locations || []);
+    return locations;
   }
 
   /**
@@ -54,6 +60,20 @@ class LocationService {
       { params },
     );
     return response.data;
+  }
+
+  /**
+   * Get all locations for an organization
+   */
+  async getOrganizationLocations(
+    orgId: string,
+    params?: { page?: number; limit?: number },
+  ): Promise<Location[]> {
+    const response = await axiosInstance.get<PaginatedResponse<Location>>(
+      `/organizations/${orgId}/locations`,
+      { params: { ...params, limit: params?.limit || 100 } }, // Default to larger limit for dropdowns
+    );
+    return response.data.data.data;
   }
 
   /**

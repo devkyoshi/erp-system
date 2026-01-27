@@ -75,16 +75,13 @@ export function PricingStep() {
 
   const fetchLocations = async () => {
     try {
-      const data = await locationService.getUserLocations();
-
-      let filteredLocations = data || [];
       if (user?.organization_id) {
-        filteredLocations = filteredLocations.filter(
-          (loc) => loc.organization_id === user.organization_id,
+        // Fetch all locations for the organization to ensure full list availability
+        const data = await locationService.getOrganizationLocations(
+          user.organization_id,
         );
+        setAvailableLocations(data || []);
       }
-
-      setAvailableLocations(filteredLocations);
     } catch (error) {
       console.error("Failed to fetch locations", error);
     }

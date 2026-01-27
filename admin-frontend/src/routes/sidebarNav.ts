@@ -27,8 +27,6 @@ export type SidebarNavItem = {
 
 export const SIDEBAR_NAV: SidebarNavItem[] = [
   { label: "Dashboard", to: "/app/dashboard", icon: LayoutDashboard },
-  { label: "Reports", to: "/app/reports", icon: FileText },
-  { label: "Orders", to: "/app/orders", icon: ShoppingBag, badge: "12" },
   { label: "Products", to: "/app/products", icon: Package },
   { label: "Categories", to: "/app/categories", icon: Layers },
   { label: "Brands", to: "/app/brands", icon: Tag },

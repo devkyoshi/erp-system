@@ -87,10 +87,7 @@ export function AddLocationPriceDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(handleSubmit)}
-            className="space-y-4"
-          >
+          <div className="space-y-4">
             {/* Location Selection */}
             <FormField
               control={form.control}
@@ -254,9 +251,11 @@ export function AddLocationPriceDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit">Add Location</Button>
+              <Button type="button" onClick={form.handleSubmit(handleSubmit)}>
+                Add Location
+              </Button>
             </DialogFooter>
-          </form>
+          </div>
         </Form>
       </DialogContent>
     </Dialog>
