@@ -30,6 +30,14 @@ import CompanyList from "@/pages/settings/companies/CompanyList";
 import CompanyDetail from "@/pages/settings/companies/CompanyDetail";
 import UnitList from "@/pages/settings/units/UnitList";
 import UnitChartList from "@/pages/settings/unit-charts/UnitChartList";
+import { SuppliersPage } from "@/pages/procurement/suppliers/SuppliersPage";
+import { PurchaseOrdersPage } from "@/pages/procurement/orders/PurchaseOrdersPage";
+import { CreatePurchaseOrderPage } from "@/pages/procurement/orders/CreatePurchaseOrderPage";
+import { CreateSupplierPage } from "@/pages/procurement/suppliers/CreateSupplierPage";
+import { EditSupplierPage } from "@/pages/procurement/suppliers/EditSupplierPage";
+import { SupplierDetailsPage } from "@/pages/procurement/suppliers/SupplierDetailsPage";
+import { PurchaseOrderDetailsPage } from "@/pages/procurement/orders/PurchaseOrderDetailsPage";
+import { EditPurchaseOrderPage } from "@/pages/procurement/orders/EditPurchaseOrderPage";
 
 export function AppRoutes() {
   return (
@@ -80,6 +88,35 @@ export function AppRoutes() {
         <Route path="settings/unit-charts" element={<UnitChartList />} />
         <Route path="companies" element={<CompanyList />} />
         <Route path="companies/:id" element={<CompanyDetail />} />
+
+        <Route path="procurement/suppliers" element={<SuppliersPage />} />
+        <Route
+          path="procurement/suppliers/new"
+          element={<CreateSupplierPage />}
+        />
+        <Route
+          path="procurement/suppliers/:id/edit"
+          element={<EditSupplierPage />}
+        />
+        <Route
+          path="procurement/suppliers/:id"
+          element={<SupplierDetailsPage />}
+        />
+
+        <Route path="procurement/orders" element={<PurchaseOrdersPage />} />
+        <Route
+          path="procurement/orders/new"
+          element={<CreatePurchaseOrderPage />}
+        />
+        <Route
+          path="procurement/orders/:id/edit"
+          element={<EditPurchaseOrderPage />}
+        />
+        <Route
+          path="procurement/orders/:id"
+          element={<PurchaseOrderDetailsPage />}
+        />
+
         <Route path="profile" element={<ProfileSettings />} />
         <Route index element={<Navigate to="/app/dashboard" replace />} />
       </Route>
