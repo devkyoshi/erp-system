@@ -15,6 +15,7 @@ import {
   Building2,
   Ruler,
   ArrowRightLeft,
+  PackageCheck,
 } from "lucide-react";
 
 export type SidebarNavItem = {
@@ -38,6 +39,11 @@ export const SIDEBAR_NAV: SidebarNavItem[] = [
     submenu: [
       { label: "Suppliers", to: "/app/procurement/suppliers", icon: Users2 },
       { label: "Orders", to: "/app/procurement/orders", icon: FileText },
+      {
+        label: "Goods Receipt",
+        to: "/app/procurement/grn",
+        icon: PackageCheck,
+      },
     ],
   },
   { label: "Inventory", to: "/app/inventory", icon: Boxes, badge: "3" },

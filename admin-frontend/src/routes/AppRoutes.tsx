@@ -38,6 +38,9 @@ import { EditSupplierPage } from "@/pages/procurement/suppliers/EditSupplierPage
 import { SupplierDetailsPage } from "@/pages/procurement/suppliers/SupplierDetailsPage";
 import { PurchaseOrderDetailsPage } from "@/pages/procurement/orders/PurchaseOrderDetailsPage";
 import { EditPurchaseOrderPage } from "@/pages/procurement/orders/EditPurchaseOrderPage";
+import { GRNListPage } from "@/pages/procurement/grn/GRNListPage";
+import { CreateGRNPage } from "@/pages/procurement/grn/CreateGRNPage";
+import { GRNDetailsPage } from "@/pages/procurement/grn/GRNDetailsPage";
 
 export function AppRoutes() {
   return (
@@ -116,6 +119,10 @@ export function AppRoutes() {
           path="procurement/orders/:id"
           element={<PurchaseOrderDetailsPage />}
         />
+
+        <Route path="procurement/grn" element={<GRNListPage />} />
+        <Route path="procurement/grn/new" element={<CreateGRNPage />} />
+        <Route path="procurement/grn/:id" element={<GRNDetailsPage />} />
 
         <Route path="profile" element={<ProfileSettings />} />
         <Route index element={<Navigate to="/app/dashboard" replace />} />

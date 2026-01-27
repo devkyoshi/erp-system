@@ -221,7 +221,9 @@ export function PurchaseOrderDetailsPage() {
 
           {order.status === POStatus.Sent && (
             <Button
-              onClick={() => handleStatusUpdate(POStatus.Received)}
+              onClick={() =>
+                navigate(`/app/procurement/grn/new?po_id=${order.id}`)
+              }
               disabled={actionLoading}
             >
               <PackageCheck className="mr-2 h-4 w-4" /> Receive Goods
