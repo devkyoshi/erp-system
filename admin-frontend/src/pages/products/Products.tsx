@@ -26,6 +26,7 @@ import {
   Trash2,
   Package,
   AlertTriangle,
+  Eye,
 } from "lucide-react";
 import { productService } from "@/services/product.service";
 import { Product, ProductStatus, ProductType } from "@/types/product.types";
@@ -142,9 +143,9 @@ export function ProductsPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "INR",
+      currency: "USD",
       minimumFractionDigits: 0,
     }).format(amount);
   };
@@ -337,6 +338,14 @@ export function ProductsPage() {
                   <TableCell>{getStatusBadge(product.status)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                        onClick={() => navigate(`/app/products/${product.id}`)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"

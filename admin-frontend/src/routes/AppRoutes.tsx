@@ -20,6 +20,7 @@ import { ProfileSettings } from "@/pages/settings/ProfileSettings";
 import { UserRoleList } from "@/pages/users/UserRoleList";
 import { UserRoleFormPage } from "@/pages/users/UserRoleFormPage";
 import { ProductsPage } from "@/pages/products/Products";
+import { ProductDetailsPage } from "@/pages/products/ProductDetails";
 import { ProductFormPage } from "@/pages/products/ProductForm";
 import { CategoriesPage } from "@/pages/categories/CategoryList";
 import { CategoryFormPage } from "@/pages/categories/CategoryForm";
@@ -42,6 +43,7 @@ import { CreateGRNPage } from "@/pages/procurement/grn/CreateGRNPage";
 import { GRNDetailsPage } from "@/pages/procurement/grn/GRNDetailsPage";
 import { InventoryPage as StockLevelsPage } from "@/pages/inventory/InventoryPage";
 import { StockAdjustmentsPage } from "@/pages/inventory/StockAdjustmentsPage";
+import { CreateStockAdjustmentPage } from "@/pages/inventory/CreateStockAdjustmentPage";
 import { StockAdjustmentDetailsPage } from "@/pages/inventory/StockAdjustmentDetailsPage";
 import { StockMovementsPage } from "@/pages/inventory/StockMovementsPage";
 
@@ -76,6 +78,7 @@ export function AppRoutes() {
 
         <Route path="products" element={<ProductsPage />} />
         <Route path="products/new" element={<ProductFormPage />} />
+        <Route path="products/:id" element={<ProductDetailsPage />} />
         <Route path="products/:id/edit" element={<ProductFormPage />} />
 
         <Route path="categories" element={<CategoriesPage />} />
@@ -127,15 +130,20 @@ export function AppRoutes() {
         <Route path="procurement/grn/:id" element={<GRNDetailsPage />} />
 
         <Route path="inventory" element={<StockLevelsPage />} />
+        <Route path="inventory/movements" element={<StockMovementsPage />} />
+
         <Route
           path="inventory/adjustments"
           element={<StockAdjustmentsPage />}
         />
         <Route
+          path="inventory/adjustments/new"
+          element={<CreateStockAdjustmentPage />}
+        />
+        <Route
           path="inventory/adjustments/:id"
           element={<StockAdjustmentDetailsPage />}
         />
-        <Route path="inventory/movements" element={<StockMovementsPage />} />
 
         <Route path="profile" element={<ProfileSettings />} />
         <Route index element={<Navigate to="/app/dashboard" replace />} />

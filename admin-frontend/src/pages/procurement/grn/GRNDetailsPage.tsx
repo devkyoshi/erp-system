@@ -288,14 +288,27 @@ export function GRNDetailsPage() {
                   {grn.items.map((item, index) => (
                     <TableRow key={index}>
                       <TableCell>
-                        <span className="font-medium">
-                          Product {item.product_id.slice(-6)}
-                        </span>
-                        {item.description && (
-                          <div className="text-xs text-muted-foreground">
-                            {item.description}
-                          </div>
-                        )}
+                        <div className="font-medium">
+                          {item.description ||
+                            `Product ${item.product_id.slice(-6)}`}
+                        </div>
+                        <div className="text-xs text-muted-foreground flex gap-2">
+                          <span>SKU: {item.sku || "-"}</span>
+                          {item.condition && (
+                            <Badge
+                              variant="outline"
+                              className={
+                                item.condition === "good"
+                                  ? "text-green-600 border-green-200 bg-green-50"
+                                  : item.condition === "damaged"
+                                    ? "text-red-600 border-red-200 bg-red-50"
+                                    : "text-amber-600 border-amber-200 bg-amber-50"
+                              }
+                            >
+                              {item.condition.toUpperCase()}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         {item.ordered_quantity ?? "-"}
@@ -380,7 +393,9 @@ export function GRNDetailsPage() {
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
                   <User className="h-3 w-3" /> Received By
                 </span>
-                <div className="font-medium">{grn.received_by}</div>
+                <div className="font-medium">
+                  {grn.received_by_name || grn.received_by}
+                </div>
               </div>
               {grn.inspected_by && (
                 <div>

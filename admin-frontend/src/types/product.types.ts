@@ -36,6 +36,10 @@ export interface LocationPrice {
   is_active: boolean;
   created_at?: number;
   modified_at?: number;
+  // Populated fields
+  current_stock?: number;
+  available_stock?: number;
+  allocated_stock?: number;
 }
 
 export interface Product {
@@ -54,8 +58,11 @@ export interface Product {
 
   // Classification
   category_id?: string;
+  category?: { id: string; name: string; code: string }; // Populated
   subcategory_id?: string;
+  subcategory?: { id: string; name: string; code: string }; // Populated
   brand_id?: string;
+  brand?: { id: string; name: string; code: string }; // Populated
   manufacturer_id?: string;
 
   // Inventory Settings

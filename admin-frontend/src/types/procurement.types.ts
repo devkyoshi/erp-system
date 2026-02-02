@@ -145,6 +145,7 @@ export interface GRNItem {
   unit_cost?: number;
   batch_number?: string;
   expiry_date?: string;
+  condition?: string;
   rejection_reason?: string;
 }
 
@@ -159,6 +160,7 @@ export interface GoodsReceiptNote {
   location_id: string;
   receipt_date: string;
   received_by: string;
+  received_by_name?: string;
   items: GRNItem[];
   inspected_by?: string;
   inspected_date?: string;
